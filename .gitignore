@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Build output
+dist/
+
+# Environment variables (SENSITIVE - never commit)
+.env
+backend/.env
+
+# Database files
+backend/database.sqlite
+backend/database.sqlite-shm
+backend/database.sqlite-wal
+
+# Backup folder
+backup_point/
+
+# Vercel
+.vercel/
+
+# IDE / Editor
+.vscode/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Bug reports / notes (optional - remove if you want these tracked)
+bug_report.txt
+backend_bug_report.txt
+the problems.txt
+
+# Logs
+*.log
+npm-debug.log*
