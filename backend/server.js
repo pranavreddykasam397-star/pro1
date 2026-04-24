@@ -19,12 +19,7 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow non-browser clients (no Origin header)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        return callback(new Error('Not allowed by CORS'));
-    },
+    origin: '*',
     methods: ['GET', 'POST', 'DELETE'],
     allowedHeaders: ['Content-Type', 'x-admin-token']
 }));
