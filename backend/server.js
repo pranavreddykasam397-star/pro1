@@ -179,7 +179,7 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         const { password } = req.body;
         // Hardcoded bcrypt hash of 'owner123'. 
-        const storedHash = process.env.OWNER_HASH || "$2b$10$w8.1Uqz.f3m1c7ZRyR/sDO3r9c8s1Q6/GZ.00t4r0A8A9T1Q3O88O";
+        const storedHash = process.env.OWNER_HASH || "$2b$10$0DAV3UE6KM9GGdOd0ricMunbm2hmST3w6JcPHJGCUN8DLYXwpG7Tm";
         const isMatch = await bcrypt.compare(password, storedHash);
         
         if (!isMatch) return res.status(401).json({ error: 'Invalid password' });
