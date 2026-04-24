@@ -9,7 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'super_secret_admin_token_123';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://your-frontend-domain.com';
 const allowedOrigins = [
     'http://localhost:5173',
