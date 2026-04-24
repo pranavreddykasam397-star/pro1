@@ -6,7 +6,7 @@ import CategoryFilter from './components/CategoryFilter';
 import MenuCard from './components/MenuCard';
 import CartSidebar from './components/CartSidebar';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpecial }) {
   const [showPayment, setShowPayment] = useState(false);
