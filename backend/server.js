@@ -545,7 +545,7 @@ app.delete('/api/daily-special', requireAdmin, async (req, res) => {
     }
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 setupDb().then(async () => {
     await addSpecialColumnIfMissing();
     // Auto-seed menu every time the server starts
