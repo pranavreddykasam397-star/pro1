@@ -694,10 +694,10 @@ app.delete('/api/daily-special', requireAdmin, async (req, res) => {
 // --- LIVE SQL PRESENTATION VIEWER ---
 app.get('/api/sql-dump', async (req, res) => {
     try {
-        const orders = await db.all("SELECT * FROM orders ORDER BY id DESC LIMIT 20");
-        const order_items = await db.all("SELECT * FROM order_items ORDER BY id DESC LIMIT 50");
-        const customers = await db.all("SELECT * FROM customers ORDER BY id DESC LIMIT 20");
-        const menu = await db.all("SELECT * FROM menu ORDER BY id DESC LIMIT 20");
+        const orders = await db.all("SELECT * FROM orders ORDER BY id DESC");
+        const order_items = await db.all("SELECT * FROM order_items ORDER BY id DESC");
+        const customers = await db.all("SELECT * FROM customers ORDER BY id DESC");
+        const menu = await db.all("SELECT * FROM menu ORDER BY id DESC");
         res.json({ orders, order_items, customers, menu });
     } catch(e) {
         res.status(500).json({ error: e.message });
