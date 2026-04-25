@@ -352,7 +352,8 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
                           <input 
                               type="password" 
                               className="admin-input" 
-                              placeholder="Enter your 3-digit PIN" 
+                              placeholder="Enter your 4-digit PIN" 
+                              maxLength="4"
                               value={ordersPin}
                               onChange={e => setOrdersPin(e.target.value)}
                           />
