@@ -697,7 +697,8 @@ app.get('/api/sql-dump', async (req, res) => {
         const orders = await db.all("SELECT * FROM orders ORDER BY id DESC LIMIT 20");
         const order_items = await db.all("SELECT * FROM order_items ORDER BY id DESC LIMIT 50");
         const customers = await db.all("SELECT * FROM customers ORDER BY id DESC LIMIT 20");
-        res.json({ orders, order_items, customers });
+        const menu = await db.all("SELECT * FROM menu ORDER BY id DESC LIMIT 20");
+        res.json({ orders, order_items, customers, menu });
     } catch(e) {
         res.status(500).json({ error: e.message });
     }
@@ -738,6 +739,12 @@ app.get('/sql-viewer', (req, res) => {
             <tbody></tbody>
         </table>
 
+        <h2>Table: menu (Recent)</h2>
+        <table id="menuTable">
+            <thead><tr><th>id</th><th>name</th><th>price</th><th>category</th><th>type</th><th>isSpecial</th></tr></thead>
+            <tbody></tbody>
+        </table>
+
         <h2>Table: customers (Recent)</h2>
         <table id="customersTable">
             <thead><tr><th>id</th><th>pin</th><th>created_at</th></tr></thead>
@@ -747,6 +754,7 @@ app.get('/sql-viewer', (req, res) => {
         <script>
             let lastOrdersCount = 0;
             let lastItemsCount = 0;
+            let lastMenuCount = 0;
 
             function updateTable(tableId, data, columns, isNew) {
                 const tbody = document.querySelector('#' + tableId + ' tbody');
@@ -775,12 +783,15 @@ app.get('/sql-viewer', (req, res) => {
                     
                     const newOrders = data.orders.length > lastOrdersCount;
                     const newItems = data.order_items.length > lastItemsCount;
+                    const newMenu = data.menu.length > lastMenuCount;
                     
                     lastOrdersCount = data.orders.length;
                     lastItemsCount = data.order_items.length;
+                    lastMenuCount = data.menu.length;
 
                     updateTable('ordersTable', data.orders, ['id', 'total', 'method', 'time', 'timeHash', 'customer_id'], newOrders);
                     updateTable('orderItemsTable', data.order_items, ['id', 'order_id', 'menu_name', 'quantity', 'price_at_time'], newItems);
+                    updateTable('menuTable', data.menu, ['id', 'name', 'price', 'category', 'type', 'isSpecial'], newMenu);
                     updateTable('customersTable', data.customers, ['id', 'pin', 'created_at'], false);
                     
                     document.getElementById('status').innerText = 'Live \u25CF';
