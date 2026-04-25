@@ -691,6 +691,116 @@ app.delete('/api/daily-special', requireAdmin, async (req, res) => {
     }
 });
 
+// --- LIVE SQL PRESENTATION VIEWER ---
+app.get('/api/sql-dump', async (req, res) => {
+    try {
+        const orders = await db.all("SELECT * FROM orders ORDER BY id DESC LIMIT 20");
+        const order_items = await db.all("SELECT * FROM order_items ORDER BY id DESC LIMIT 50");
+        const customers = await db.all("SELECT * FROM customers ORDER BY id DESC LIMIT 20");
+        res.json({ orders, order_items, customers });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/sql-viewer', (req, res) => {
+    const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Live Database Viewer</title>
+        <style>
+            body { background: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', monospace; padding: 20px; }
+            h1 { color: #ce9178; border-bottom: 1px solid #444; padding-bottom: 10px; }
+            h2 { color: #569cd6; margin-top: 30px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #252526; }
+            th, td { border: 1px solid #444; padding: 8px; text-align: left; }
+            th { background: #333; color: #4fc1ff; }
+            .status { float: right; font-size: 0.9rem; color: #4ec9b0; }
+            @keyframes highlight { from { background-color: #062f4a; } to { background-color: transparent; } }
+            .flash { animation: highlight 1s ease; }
+        </style>
+    </head>
+    <body>
+        <h1>Live SQLite Database <span class="status" id="status">Connecting...</span></h1>
+        
+        <h2>Table: orders (Recent)</h2>
+        <table id="ordersTable">
+            <thead><tr><th>id</th><th>total</th><th>method</th><th>time</th><th>timeHash</th><th>customer_id</th></tr></thead>
+            <tbody></tbody>
+        </table>
+
+        <h2>Table: order_items (Recent)</h2>
+        <table id="orderItemsTable">
+            <thead><tr><th>id</th><th>order_id</th><th>menu_name</th><th>quantity</th><th>price_at_time</th></tr></thead>
+            <tbody></tbody>
+        </table>
+
+        <h2>Table: customers (Recent)</h2>
+        <table id="customersTable">
+            <thead><tr><th>id</th><th>pin</th><th>created_at</th></tr></thead>
+            <tbody></tbody>
+        </table>
+
+        <script>
+            let lastOrdersCount = 0;
+            let lastItemsCount = 0;
+
+            function updateTable(tableId, data, columns, isNew) {
+                const tbody = document.querySelector('#' + tableId + ' tbody');
+                let html = '';
+                if(data.length === 0) {
+                    html = '<tr><td colspan="' + columns.length + '" style="text-align:center;">No records found</td></tr>';
+                } else {
+                    data.forEach((row, index) => {
+                        const flashClass = (isNew && index === 0) ? 'class="flash"' : '';
+                        html += '<tr ' + flashClass + '>';
+                        columns.forEach(col => {
+                            html += '<td>' + (row[col] !== null ? row[col] : 'NULL') + '</td>';
+                        });
+                        html += '</tr>';
+                    });
+                }
+                tbody.innerHTML = html;
+            }
+
+            async function fetchData() {
+                try {
+                    document.getElementById('status').innerText = 'Syncing...';
+                    document.getElementById('status').style.color = '#ce9178';
+                    const res = await fetch('/api/sql-dump');
+                    const data = await res.json();
+                    
+                    const newOrders = data.orders.length > lastOrdersCount;
+                    const newItems = data.order_items.length > lastItemsCount;
+                    
+                    lastOrdersCount = data.orders.length;
+                    lastItemsCount = data.order_items.length;
+
+                    updateTable('ordersTable', data.orders, ['id', 'total', 'method', 'time', 'timeHash', 'customer_id'], newOrders);
+                    updateTable('orderItemsTable', data.order_items, ['id', 'order_id', 'menu_name', 'quantity', 'price_at_time'], newItems);
+                    updateTable('customersTable', data.customers, ['id', 'pin', 'created_at'], false);
+                    
+                    document.getElementById('status').innerText = 'Live \u25CF';
+                    document.getElementById('status').style.color = '#4ec9b0';
+                } catch(e) {
+                    document.getElementById('status').innerText = 'Connection Error';
+                    document.getElementById('status').style.color = '#f44336';
+                }
+            }
+
+            fetchData();
+            setInterval(fetchData, 2000); // Update every 2 seconds
+        </script>
+    </body>
+    </html>
+    `;
+    res.send(html);
+});
+// ------------------------------------
+
 const PORT = process.env.PORT || 3000;
 setupDb().then(async () => {
     await runMigrations();

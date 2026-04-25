@@ -360,6 +360,16 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
                           {ordersError && <p style={{ color: 'red', fontSize: '0.8rem', textAlign: 'center' }}>{ordersError}</p>}
                           <button onClick={fetchMyOrders} className="admin-btn admin-btn--primary">View History</button>
                           <button onClick={() => setShowOrdersModal(false)} className="admin-btn admin-btn--secondary">Close</button>
+                          <button 
+                              onClick={() => {
+                                  localStorage.removeItem('customerAuth');
+                                  setCustomerAuth(null);
+                                  setShowOrdersModal(false);
+                              }} 
+                              style={{ background: 'none', border: 'none', color: 'var(--text-soft)', textDecoration: 'underline', cursor: 'pointer', marginTop: '0.5rem', fontSize: '0.85rem' }}
+                          >
+                              Not you? Sign out
+                          </button>
                       </div>
                   ) : (
                       <div>
