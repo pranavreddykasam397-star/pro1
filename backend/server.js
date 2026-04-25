@@ -406,9 +406,14 @@ app.post('/api/orders', async (req, res) => {
     }
 });
 
-// Generate new customer ID and PIN
+// Generate new customer ID and accept PIN
 app.post('/api/customers/signup', async (req, res) => {
     try {
+        const { pin } = req.body || {};
+        if (!pin || pin.toString().length !== 4) {
+            return res.status(400).json({ error: 'A 4-digit PIN is required' });
+        }
+        
         let newId;
         let isUnique = false;
         let attempts = 0;
@@ -422,11 +427,9 @@ app.post('/api/customers/signup', async (req, res) => {
         
         if (!isUnique) return res.status(500).json({ error: 'Failed to generate unique ID' });
         
-        const pin = Math.floor(100 + Math.random() * 900).toString(); // 3-digit PIN
+        await db.run("INSERT INTO customers (id, pin) VALUES (?, ?)", [newId, pin.toString()]);
         
-        await db.run("INSERT INTO customers (id, pin) VALUES (?, ?)", [newId, pin]);
-        
-        res.json({ id: newId, pin });
+        res.json({ id: newId, pin: pin.toString() });
     } catch(e) {
         res.status(500).json({ error: e.message });
     }

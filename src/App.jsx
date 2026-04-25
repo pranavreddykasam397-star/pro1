@@ -23,6 +23,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
   const [ordersPin, setOrdersPin] = useState('');
   const [customerOrders, setCustomerOrders] = useState(null);
   const [ordersError, setOrdersError] = useState('');
+  const [signupPin, setSignupPin] = useState('');
   
   const [menuType, setMenuType] = useState('veg');
   const [activeCategory, setActiveCategory] = useState('');
@@ -128,16 +129,21 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
   };
 
   const handleSignup = async () => {
+      if (signupPin.length !== 4) return alert("Please enter a 4-digit PIN.");
       setIsProcessing(true);
       try {
-          const res = await fetch(`${API_URL}/customers/signup`, { method: 'POST' });
+          const res = await fetch(`${API_URL}/customers/signup`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pin: signupPin })
+          });
           const data = await res.json();
           if (data.error) throw new Error(data.error);
           setCustomerAuth({ id: data.id, pin: data.pin });
           localStorage.setItem('customerAuth', JSON.stringify({ id: data.id, pin: data.pin }));
           setCheckoutStep('signup_success');
       } catch (e) {
-          alert("Failed to generate ID.");
+          alert("Failed to generate ID. " + e.message);
       } finally {
           setIsProcessing(false);
       }
@@ -270,10 +276,19 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
                     <>
                         <h2 className="serif text-center" style={{ marginBottom: '1.5rem', color: 'var(--ink)' }}>Save Your Order History?</h2>
                         <span className="gold-rule" style={{ margin: '0 auto 2rem' }}></span>
-                        <p style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--text-soft)', fontSize: '0.9rem' }}>
-                            Sign up to get a unique Customer ID and PIN, so you can easily view your past orders later.
+                        <p style={{ textAlign: 'center', marginBottom: '1rem', color: 'var(--text-soft)', fontSize: '0.9rem' }}>
+                            Sign up to get a unique Customer ID. Please set a 4-digit PIN for your account.
                         </p>
-                        <button onClick={handleSignup} className="admin-btn admin-btn--primary" style={{ width: '100%', padding: '1rem', marginBottom: '1rem' }}>Sign Up & Save</button>
+                        <input 
+                            type="password" 
+                            maxLength="4"
+                            placeholder="Enter 4-digit PIN"
+                            className="admin-input"
+                            value={signupPin}
+                            onChange={(e) => setSignupPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                            style={{ marginBottom: '1rem', textAlign: 'center', letterSpacing: '0.2em' }}
+                        />
+                        <button onClick={handleSignup} className="admin-btn admin-btn--primary" style={{ width: '100%', padding: '1rem', marginBottom: '1rem' }} disabled={signupPin.length !== 4}>Sign Up & Save</button>
                         <button onClick={() => setCheckoutStep('payment')} className="admin-btn admin-btn--secondary" style={{ width: '100%', padding: '1rem' }}>Continue as Guest</button>
                         <button onClick={() => setShowPayment(false)} style={{ width: '100%', marginTop: '1rem', background: 'transparent', border: 'none', color: 'var(--text-soft)', cursor: 'pointer' }}>Cancel</button>
                     </>
@@ -283,7 +298,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
                         <p style={{ marginBottom: '1rem' }}>Please save these details to view your history later:</p>
                         <div style={{ background: 'var(--cream-deep)', padding: '1rem', borderRadius: '4px', border: '1px solid var(--parchment)', marginBottom: '2rem' }}>
                             <p style={{ margin: '0.5rem 0', fontWeight: 'bold' }}>Customer ID: <span style={{ color: 'var(--gold)' }}>{customerAuth?.id}</span></p>
-                            <p style={{ margin: '0.5rem 0', fontWeight: 'bold' }}>3-Digit PIN: <span style={{ color: 'var(--gold)' }}>{customerAuth?.pin}</span></p>
+                            <p style={{ margin: '0.5rem 0', fontWeight: 'bold' }}>4-Digit PIN: <span style={{ color: 'var(--gold)' }}>{customerAuth?.pin}</span></p>
                         </div>
                         <button onClick={() => setCheckoutStep('payment')} className="admin-btn admin-btn--primary" style={{ width: '100%', padding: '1rem' }}>Continue to Payment</button>
                     </div>
