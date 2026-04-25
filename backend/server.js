@@ -534,7 +534,7 @@ app.get('/api/admin/customers/:id/orders', requireAdmin, async (req, res) => {
             }
         }
 
-        res.json({ orders: Array.from(ordersById.values()) });
+        res.json({ orders: Array.from(ordersById.values()), pin: customer.pin });
     } catch(e) {
         res.status(500).json({ error: e.message });
     }

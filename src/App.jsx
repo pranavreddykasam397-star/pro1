@@ -383,6 +383,7 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, onDataUpdated, daily
   
   const [lookupId, setLookupId] = useState('');
   const [lookupOrders, setLookupOrders] = useState(null);
+  const [lookupPin, setLookupPin] = useState('');
   const [lookupError, setLookupError] = useState('');
 
   // Check if the typed special name matches an existing menu item
@@ -402,8 +403,10 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, onDataUpdated, daily
           if (data.error) {
               setLookupError(data.error);
               setLookupOrders(null);
+              setLookupPin('');
           } else {
               setLookupOrders(data.orders);
+              setLookupPin(data.pin);
               setLookupError('');
           }
       } catch (e) {
@@ -729,6 +732,7 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, onDataUpdated, daily
             {lookupOrders && (
                 <div style={{ background: 'var(--cream-deep)', padding: '1rem', borderRadius: '4px', border: '1px solid var(--parchment)' }}>
                     <h3 className="serif" style={{ marginBottom: '1rem' }}>Orders for ID: {lookupId}</h3>
+                    {lookupPin && <p style={{ marginBottom: '1rem', fontWeight: 'bold', color: 'var(--gold)' }}>Customer PIN: {lookupPin}</p>}
                     {lookupOrders.length === 0 ? <p className="text-muted">No orders found.</p> : (
                         <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                             {lookupOrders.map((o) => (
