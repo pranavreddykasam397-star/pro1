@@ -714,12 +714,17 @@ app.get('/sql-viewer', (req, res) => {
         <title>Live Database Viewer</title>
         <style>
             body { background: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', monospace; padding: 20px; }
-            h1 { color: #ce9178; border-bottom: 1px solid #444; padding-bottom: 10px; }
-            h2 { color: #569cd6; margin-top: 30px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #252526; }
-            th, td { border: 1px solid #444; padding: 8px; text-align: left; }
+            h1 { color: #ce9178; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 20px; }
+            details { margin-bottom: 20px; background: #252526; border: 1px solid #444; border-radius: 4px; overflow: hidden; }
+            summary { padding: 12px 15px; cursor: pointer; background: #2d2d30; list-style: none; display: flex; align-items: center; user-select: none; }
+            summary::-webkit-details-marker { display: none; }
+            summary::before { content: '▶'; margin-right: 12px; color: #569cd6; font-size: 0.9rem; transition: transform 0.2s; }
+            details[open] summary::before { transform: rotate(90deg); }
+            summary h2 { margin: 0; display: inline-block; font-size: 1.1rem; color: #569cd6; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #444; padding: 8px 12px; text-align: left; }
             th { background: #333; color: #4fc1ff; }
-            .status { float: right; font-size: 0.9rem; color: #4ec9b0; }
+            .status { float: right; font-size: 0.9rem; color: #4ec9b0; margin-top: 5px; }
             @keyframes highlight { from { background-color: #062f4a; } to { background-color: transparent; } }
             .flash { animation: highlight 1s ease; }
         </style>
@@ -727,29 +732,37 @@ app.get('/sql-viewer', (req, res) => {
     <body>
         <h1>Live SQLite Database <span class="status" id="status">Connecting...</span></h1>
         
-        <h2>Table: orders (Recent)</h2>
-        <table id="ordersTable">
-            <thead><tr><th>id</th><th>total</th><th>method</th><th>time</th><th>timeHash</th><th>customer_id</th></tr></thead>
-            <tbody></tbody>
-        </table>
+        <details open>
+            <summary><h2>Table: orders (Recent)</h2></summary>
+            <table id="ordersTable">
+                <thead><tr><th>id</th><th>total</th><th>method</th><th>time</th><th>timeHash</th><th>customer_id</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </details>
 
-        <h2>Table: order_items (Recent)</h2>
-        <table id="orderItemsTable">
-            <thead><tr><th>id</th><th>order_id</th><th>menu_name</th><th>quantity</th><th>price_at_time</th></tr></thead>
-            <tbody></tbody>
-        </table>
+        <details open>
+            <summary><h2>Table: order_items (Recent)</h2></summary>
+            <table id="orderItemsTable">
+                <thead><tr><th>id</th><th>order_id</th><th>menu_name</th><th>quantity</th><th>price_at_time</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </details>
 
-        <h2>Table: menu (Recent)</h2>
-        <table id="menuTable">
-            <thead><tr><th>id</th><th>name</th><th>price</th><th>category</th><th>type</th><th>isSpecial</th></tr></thead>
-            <tbody></tbody>
-        </table>
+        <details open>
+            <summary><h2>Table: menu (Recent)</h2></summary>
+            <table id="menuTable">
+                <thead><tr><th>id</th><th>name</th><th>price</th><th>category</th><th>type</th><th>isSpecial</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </details>
 
-        <h2>Table: customers (Recent)</h2>
-        <table id="customersTable">
-            <thead><tr><th>id</th><th>pin</th><th>created_at</th></tr></thead>
-            <tbody></tbody>
-        </table>
+        <details>
+            <summary><h2>Table: customers (Recent)</h2></summary>
+            <table id="customersTable">
+                <thead><tr><th>id</th><th>pin</th><th>created_at</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </details>
 
         <script>
             let lastOrdersCount = 0;
