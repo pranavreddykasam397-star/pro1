@@ -10,9 +10,19 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpecial }) {
   const [showPayment, setShowPayment] = useState(false);
+  const [checkoutStep, setCheckoutStep] = useState('auth'); // 'auth', 'payment', 'signup_success'
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('QR');
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [customerAuth, setCustomerAuth] = useState(() => {
+      const saved = localStorage.getItem('customerAuth');
+      return saved ? JSON.parse(saved) : null;
+  });
+  
+  const [showOrdersModal, setShowOrdersModal] = useState(false);
+  const [ordersPin, setOrdersPin] = useState('');
+  const [customerOrders, setCustomerOrders] = useState(null);
+  const [ordersError, setOrdersError] = useState('');
   
   const [menuType, setMenuType] = useState('veg');
   const [activeCategory, setActiveCategory] = useState('');
@@ -75,6 +85,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
 
   const initiateCheckout = () => {
     if (cart.length === 0) return alert('Cart is empty!');
+    setCheckoutStep(customerAuth ? 'payment' : 'auth');
     setShowPayment(true);
     setIsCartOpen(false);
   };
@@ -86,7 +97,8 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
         total: cartTotal,
         method: paymentMethod,
         time: new Date().toLocaleTimeString(),
-        timeHash: Date.now()
+        timeHash: Date.now(),
+        customer_id: customerAuth ? customerAuth.id : null
     };
 
     try {
@@ -115,9 +127,55 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
     }
   };
 
+  const handleSignup = async () => {
+      setIsProcessing(true);
+      try {
+          const res = await fetch(`${API_URL}/customers/signup`, { method: 'POST' });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          setCustomerAuth({ id: data.id, pin: data.pin });
+          localStorage.setItem('customerAuth', JSON.stringify({ id: data.id, pin: data.pin }));
+          setCheckoutStep('signup_success');
+      } catch (e) {
+          alert("Failed to generate ID.");
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
+  const fetchMyOrders = async () => {
+      if (!customerAuth || !ordersPin) return setOrdersError('Enter PIN');
+      try {
+          const res = await fetch(`${API_URL}/customers/history`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: customerAuth.id, pin: ordersPin })
+          });
+          const data = await res.json();
+          if (data.error) {
+              setOrdersError(data.error);
+          } else {
+              setCustomerOrders(data.orders);
+              setOrdersError('');
+          }
+      } catch (e) {
+          setOrdersError('Connection failed.');
+      }
+  };
+
   return (
     <div className="customer-view-container">
       <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
+      
+      {/* "My Orders" float button if authenticated */}
+      {customerAuth && (
+          <button 
+            onClick={() => { setShowOrdersModal(true); setCustomerOrders(null); setOrdersError(''); setOrdersPin(''); }}
+            style={{ position: 'fixed', bottom: '20px', left: '20px', zIndex: 1000, background: 'var(--gold)', color: 'white', border: 'none', padding: '0.8rem 1.2rem', borderRadius: '30px', boxShadow: 'var(--shadow-lg)', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            📋 My Orders
+          </button>
+      )}
       
       <CartSidebar 
         isOpen={isCartOpen}
@@ -203,7 +261,33 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
       {showPayment && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(26,22,16,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, backdropFilter: 'blur(4px)' }}>
             <div style={{ background: 'var(--cream)', padding: '2.5rem', borderRadius: '4px', maxWidth: '450px', width: '90%', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--parchment)' }}>
-                {!isProcessing ? (
+                {isProcessing ? (
+                    <div style={{ textAlign: 'center', padding: '3rem 0' }}>
+                        <h2 className="serif">Simmering...</h2>
+                        <div style={{ fontSize: '2rem', marginTop: '1.5rem' }}>⌛</div>
+                    </div>
+                ) : checkoutStep === 'auth' ? (
+                    <>
+                        <h2 className="serif text-center" style={{ marginBottom: '1.5rem', color: 'var(--ink)' }}>Save Your Order History?</h2>
+                        <span className="gold-rule" style={{ margin: '0 auto 2rem' }}></span>
+                        <p style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--text-soft)', fontSize: '0.9rem' }}>
+                            Sign up to get a unique Customer ID and PIN, so you can easily view your past orders later.
+                        </p>
+                        <button onClick={handleSignup} className="admin-btn admin-btn--primary" style={{ width: '100%', padding: '1rem', marginBottom: '1rem' }}>Sign Up & Save</button>
+                        <button onClick={() => setCheckoutStep('payment')} className="admin-btn admin-btn--secondary" style={{ width: '100%', padding: '1rem' }}>Continue as Guest</button>
+                        <button onClick={() => setShowPayment(false)} style={{ width: '100%', marginTop: '1rem', background: 'transparent', border: 'none', color: 'var(--text-soft)', cursor: 'pointer' }}>Cancel</button>
+                    </>
+                ) : checkoutStep === 'signup_success' ? (
+                    <div style={{ textAlign: 'center' }}>
+                        <h2 className="serif" style={{ color: 'var(--gold)', marginBottom: '1rem' }}>Success!</h2>
+                        <p style={{ marginBottom: '1rem' }}>Please save these details to view your history later:</p>
+                        <div style={{ background: 'var(--cream-deep)', padding: '1rem', borderRadius: '4px', border: '1px solid var(--parchment)', marginBottom: '2rem' }}>
+                            <p style={{ margin: '0.5rem 0', fontWeight: 'bold' }}>Customer ID: <span style={{ color: 'var(--gold)' }}>{customerAuth?.id}</span></p>
+                            <p style={{ margin: '0.5rem 0', fontWeight: 'bold' }}>3-Digit PIN: <span style={{ color: 'var(--gold)' }}>{customerAuth?.pin}</span></p>
+                        </div>
+                        <button onClick={() => setCheckoutStep('payment')} className="admin-btn admin-btn--primary" style={{ width: '100%', padding: '1rem' }}>Continue to Payment</button>
+                    </div>
+                ) : (
                     <>
                         <h2 className="serif text-center" style={{ marginBottom: '1.5rem', color: 'var(--ink)' }}>Finalize Order</h2>
                         <span className="gold-rule" style={{ margin: '0 auto 2rem' }}></span>
@@ -236,14 +320,52 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
                         <button onClick={processPayment} className="admin-btn admin-btn--primary" style={{ width: '100%', padding: '1rem', fontSize: '0.9rem' }}>Confirm & Send Order</button>
                         <button onClick={() => setShowPayment(false)} className="admin-btn admin-btn--secondary" style={{ width: '100%', marginTop: '0.5rem', border: 'none' }}>Cancel</button>
                     </>
-                ) : (
-                    <div style={{ textAlign: 'center', padding: '3rem 0' }}>
-                        <h2 className="serif">Simmering your order...</h2>
-                        <div style={{ fontSize: '2rem', marginTop: '1.5rem' }}>⌛</div>
-                    </div>
                 )}
             </div>
         </div>
+      )}
+
+      {showOrdersModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(26,22,16,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 4000, backdropFilter: 'blur(4px)' }}>
+              <div style={{ background: 'var(--cream)', padding: '2.5rem', borderRadius: '4px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--parchment)' }}>
+                  <h2 className="serif text-center" style={{ marginBottom: '1.5rem' }}>My Orders</h2>
+                  <span className="gold-rule" style={{ margin: '0 auto 2rem' }}></span>
+                  
+                  {!customerOrders ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          <p style={{ textAlign: 'center', fontSize: '0.9rem' }}>Customer ID: <strong>{customerAuth.id}</strong></p>
+                          <input 
+                              type="password" 
+                              className="admin-input" 
+                              placeholder="Enter your 3-digit PIN" 
+                              value={ordersPin}
+                              onChange={e => setOrdersPin(e.target.value)}
+                          />
+                          {ordersError && <p style={{ color: 'red', fontSize: '0.8rem', textAlign: 'center' }}>{ordersError}</p>}
+                          <button onClick={fetchMyOrders} className="admin-btn admin-btn--primary">View History</button>
+                          <button onClick={() => setShowOrdersModal(false)} className="admin-btn admin-btn--secondary">Close</button>
+                      </div>
+                  ) : (
+                      <div>
+                          {customerOrders.length === 0 ? <p style={{ textAlign: 'center' }}>No orders found.</p> : (
+                              customerOrders.map(o => (
+                                  <div key={o.id} style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--cream-deep)', borderRadius: '4px', border: '1px solid var(--parchment)' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                          <strong>Order #{o.id}</strong>
+                                          <span style={{ fontSize: '0.8rem' }}>{o.time}</span>
+                                      </div>
+                                      <ul style={{ paddingLeft: '1rem', fontSize: '0.85rem' }}>
+                                          {o.items.map((it, idx) => <li key={idx}>{it.name} (x{it.qty})</li>)}
+                                      </ul>
+                                      <div style={{ marginTop: '0.5rem', textAlign: 'right', fontWeight: 'bold' }}>₹{o.total}</div>
+                                  </div>
+                              ))
+                          )}
+                          <button onClick={() => setShowOrdersModal(false)} className="admin-btn admin-btn--secondary" style={{ width: '100%', marginTop: '1rem' }}>Close</button>
+                      </div>
+                  )}
+              </div>
+          </div>
       )}
     </div>
   );
@@ -258,6 +380,10 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, onDataUpdated, daily
   const [specialForm, setSpecialForm] = useState({ name: '', imageUrl: '', price: '', type: 'veg' });
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
+  
+  const [lookupId, setLookupId] = useState('');
+  const [lookupOrders, setLookupOrders] = useState(null);
+  const [lookupError, setLookupError] = useState('');
 
   // Check if the typed special name matches an existing menu item
   const matchedMenuItem = menu.find(
@@ -265,6 +391,25 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, onDataUpdated, daily
   );
 
   const [adminToken, setAdminToken] = useState(localStorage.getItem('adminToken') || null); // [Fix 1.3] JWT Token stored in state
+
+  const handleCustomerLookup = async () => {
+      if (!lookupId) return;
+      try {
+          const res = await fetch(`${API_URL}/admin/customers/${lookupId}/orders`, {
+              headers: { 'x-admin-token': adminToken }
+          });
+          const data = await res.json();
+          if (data.error) {
+              setLookupError(data.error);
+              setLookupOrders(null);
+          } else {
+              setLookupOrders(data.orders);
+              setLookupError('');
+          }
+      } catch (e) {
+          setLookupError('Failed to fetch data.');
+      }
+  };
 
   const handleLogin = async () => {
     // [Fix 1.3] Secure backend validation using bcrypt and JWT
@@ -565,6 +710,43 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, onDataUpdated, daily
                     )}
                 </div>
             </div>
+        </div>
+
+        <div className="admin-section" style={{ marginTop: '2rem' }}>
+            <h2>Customer Lookup</h2>
+            <span className="gold-rule"></span>
+            <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem' }}>
+                <input 
+                    type="number" 
+                    className="admin-input" 
+                    placeholder="Enter Customer ID" 
+                    value={lookupId}
+                    onChange={(e) => setLookupId(e.target.value)}
+                />
+                <button onClick={handleCustomerLookup} className="admin-btn admin-btn--primary">Search</button>
+            </div>
+            {lookupError && <p style={{ color: '#c0392b', fontSize: '0.9rem', marginBottom: '1rem' }}>{lookupError}</p>}
+            {lookupOrders && (
+                <div style={{ background: 'var(--cream-deep)', padding: '1rem', borderRadius: '4px', border: '1px solid var(--parchment)' }}>
+                    <h3 className="serif" style={{ marginBottom: '1rem' }}>Orders for ID: {lookupId}</h3>
+                    {lookupOrders.length === 0 ? <p className="text-muted">No orders found.</p> : (
+                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            {lookupOrders.map((o) => (
+                                <div key={o.id} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px dashed var(--parchment)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                                        <strong>Order #{o.id}</strong>
+                                        <span style={{ fontSize: '0.8rem' }}>{o.time}</span>
+                                    </div>
+                                    <ul style={{ paddingLeft: '1rem', fontSize: '0.85rem' }}>
+                                        {o.items.map((it, idx) => <li key={idx}>{it.name} (x{it.qty}) - ₹{it.price}</li>)}
+                                    </ul>
+                                    <div style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>Total: ₹{o.total}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
 
         <details className="admin-section inventory-dropdown" open>

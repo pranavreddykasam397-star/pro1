@@ -76,7 +76,8 @@ async function setupDb() {
             total INTEGER NOT NULL,
             method VARCHAR(50) NOT NULL,
             time DATETIME DEFAULT CURRENT_TIMESTAMP,
-            timeHash INTEGER NOT NULL
+            timeHash INTEGER NOT NULL,
+            customer_id INTEGER
         );
         
         -- Topic 7: Foreign Keys (ON DELETE CASCADE)
@@ -101,6 +102,12 @@ async function setupDb() {
             order_count INTEGER NOT NULL,
             orders_json TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS customers (
+            id INTEGER PRIMARY KEY,
+            pin TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
     `);
 
     // Ensure config exists
@@ -110,12 +117,17 @@ async function setupDb() {
     }
 }
 
-// Ensure isSpecial column exists (for databases created before this change)
-async function addSpecialColumnIfMissing() {
+// Run database migrations for columns that might be missing in older databases
+async function runMigrations() {
     try {
         await db.run("ALTER TABLE menu ADD COLUMN isSpecial INTEGER DEFAULT 0");
     } catch (e) {
-        if (!e.message.includes('duplicate column')) console.error('Migration error:', e); // [Fix 2.3] Filter duplicate column errors
+        if (!e.message.includes('duplicate column')) console.error('Migration error (menu.isSpecial):', e);
+    }
+    try {
+        await db.run("ALTER TABLE orders ADD COLUMN customer_id INTEGER");
+    } catch (e) {
+        if (!e.message.includes('duplicate column')) console.error('Migration error (orders.customer_id):', e);
     }
 }
 
@@ -203,6 +215,7 @@ app.get('/api/data', async (req, res) => {
                 o.method AS method,
                 o.time AS time,
                 o.timeHash AS timeHash,
+                o.customer_id AS customer_id,
                 oi.menu_name AS name,
                 oi.quantity AS qty,
                 oi.price_at_time AS price
@@ -220,6 +233,7 @@ app.get('/api/data', async (req, res) => {
                     method: row.method,
                     time: row.time,
                     timeHash: row.timeHash,
+                    customer_id: row.customer_id,
                     items: []
                 });
             }
@@ -312,7 +326,7 @@ app.delete('/api/menu/:id', requireAdmin, async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
     try {
-        const { items, total, method, time, timeHash } = req.body || {};
+        const { items, total, method, time, timeHash, customer_id } = req.body || {};
 
         if (!Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ error: 'items must be a non-empty array' });
@@ -361,8 +375,8 @@ app.post('/api/orders', async (req, res) => {
             await db.run('BEGIN TRANSACTION');
             
             const result = await db.run(
-                "INSERT INTO orders (total, method, time, timeHash) VALUES (?, ?, ?, ?)",
-                [serverCalculatedTotal, method.trim(), time, parsedTimeHash] // [Fix 1.1] Use `serverCalculatedTotal` safely
+                "INSERT INTO orders (total, method, time, timeHash, customer_id) VALUES (?, ?, ?, ?, ?)",
+                [serverCalculatedTotal, method.trim(), time, parsedTimeHash, customer_id || null] // [Fix 1.1] Use `serverCalculatedTotal` safely
             );
             const orderId = result.lastID;
             
@@ -388,6 +402,140 @@ app.post('/api/orders', async (req, res) => {
         if (e.message === 'Invalid item payload') {
             return res.status(400).json({ error: e.message });
         }
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Generate new customer ID and PIN
+app.post('/api/customers/signup', async (req, res) => {
+    try {
+        let newId;
+        let isUnique = false;
+        let attempts = 0;
+        
+        while (!isUnique && attempts < 10) {
+            newId = Math.floor(1000 + Math.random() * 9000); // 4-digit ID
+            const existing = await db.get("SELECT id FROM customers WHERE id = ?", [newId]);
+            if (!existing) isUnique = true;
+            attempts++;
+        }
+        
+        if (!isUnique) return res.status(500).json({ error: 'Failed to generate unique ID' });
+        
+        const pin = Math.floor(100 + Math.random() * 900).toString(); // 3-digit PIN
+        
+        await db.run("INSERT INTO customers (id, pin) VALUES (?, ?)", [newId, pin]);
+        
+        res.json({ id: newId, pin });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Fetch customer order history
+app.post('/api/customers/history', async (req, res) => {
+    try {
+        const { id, pin } = req.body || {};
+        if (!id || !pin) return res.status(400).json({ error: 'ID and PIN required' });
+        
+        const customer = await db.get("SELECT * FROM customers WHERE id = ?", [parseInt(id)]);
+        if (!customer || customer.pin !== pin.toString()) {
+            return res.status(401).json({ error: 'Invalid ID or PIN' });
+        }
+        
+        const rows = await db.all(`
+            SELECT
+                o.id AS id,
+                o.total AS total,
+                o.method AS method,
+                o.time AS time,
+                o.timeHash AS timeHash,
+                oi.menu_name AS name,
+                oi.quantity AS qty,
+                oi.price_at_time AS price
+            FROM orders o
+            JOIN order_items oi ON oi.order_id = o.id
+            WHERE o.customer_id = ?
+            ORDER BY o.timeHash DESC
+        `, [customer.id]);
+
+        const ordersById = new Map();
+        for (const row of rows) {
+            if (!ordersById.has(row.id)) {
+                ordersById.set(row.id, {
+                    id: row.id,
+                    total: row.total,
+                    method: row.method,
+                    time: row.time,
+                    timeHash: row.timeHash,
+                    items: []
+                });
+            }
+            if (row.name) {
+                ordersById.get(row.id).items.push({
+                    name: row.name,
+                    qty: row.qty,
+                    price: row.price
+                });
+            }
+        }
+
+        res.json({ orders: Array.from(ordersById.values()) });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin fetch customer order history
+app.get('/api/admin/customers/:id/orders', requireAdmin, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (!id) return res.status(400).json({ error: 'Invalid ID' });
+        
+        const customer = await db.get("SELECT * FROM customers WHERE id = ?", [id]);
+        if (!customer) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+        
+        const rows = await db.all(`
+            SELECT
+                o.id AS id,
+                o.total AS total,
+                o.method AS method,
+                o.time AS time,
+                o.timeHash AS timeHash,
+                oi.menu_name AS name,
+                oi.quantity AS qty,
+                oi.price_at_time AS price
+            FROM orders o
+            JOIN order_items oi ON oi.order_id = o.id
+            WHERE o.customer_id = ?
+            ORDER BY o.timeHash DESC
+        `, [id]);
+
+        const ordersById = new Map();
+        for (const row of rows) {
+            if (!ordersById.has(row.id)) {
+                ordersById.set(row.id, {
+                    id: row.id,
+                    total: row.total,
+                    method: row.method,
+                    time: row.time,
+                    timeHash: row.timeHash,
+                    items: []
+                });
+            }
+            if (row.name) {
+                ordersById.get(row.id).items.push({
+                    name: row.name,
+                    qty: row.qty,
+                    price: row.price
+                });
+            }
+        }
+
+        res.json({ orders: Array.from(ordersById.values()) });
+    } catch(e) {
         res.status(500).json({ error: e.message });
     }
 });
@@ -542,7 +690,7 @@ app.delete('/api/daily-special', requireAdmin, async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 setupDb().then(async () => {
-    await addSpecialColumnIfMissing();
+    await runMigrations();
     // Auto-seed menu every time the server starts
     await seedMenu();
     app.listen(PORT, () => console.log(`Backend API live on http://localhost:${PORT}`));
