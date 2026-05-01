@@ -1,12 +1,8 @@
 -- ===================================================================
 -- HERITAGE RESTAURANT DATABASE 
--- BACKEND PREPARED STATEMENTS TEMPLATE
--- Demonstrating Syllabus Modules Dynamically for the Web App
+-- ACADEMIC DEMONSTRATION SCRIPT
+-- Demonstrating Database Modules from Syllabus
 -- ===================================================================
--- NOTE: All DML and DQL queries here use parameters (?) to demonstrate
--- how the Node.js backend executes them securely and dynamically for ANY item.
-
-PRAGMA foreign_keys = ON;
 
 -- ===================================================================
 -- MODULE II: SQL Basics & Table Operations (DDL & DML)
@@ -45,70 +41,83 @@ CREATE TABLE IF NOT EXISTS order_items (
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
--- DML: Dynamic Inserts (Working for ANY item/customer from the web)
-INSERT INTO customers (id, pin) VALUES (?, ?);
-INSERT INTO menu (name, price, category, timeHash) VALUES (?, ?, ?, ?);
-INSERT INTO orders (total, method, timeHash, customer_id) VALUES (?, ?, ?, ?);
-INSERT INTO order_items (order_id, menu_name, quantity, price_at_time) VALUES (?, ?, ?, ?);
+-- DML: Inserting Demo Data 
+INSERT OR IGNORE INTO customers (id, pin) VALUES (101, '1234'), (102, '9999'), (103, '0000');
+INSERT OR IGNORE INTO menu (id, name, price, category, timeHash) VALUES 
+(1, 'Butter Chicken', 350, 'Curries', 100),
+(2, 'Garlic Naan', 60, 'Breads', 100),
+(3, 'Paneer Tikka', 280, 'Starters', 100),
+(4, 'Chicken Biryani', 320, 'Rice', 100);
 
--- DML: Dynamic Updates and Deletions
-UPDATE menu SET price = ? WHERE id = ?;
-DELETE FROM menu WHERE id = ?;
+INSERT OR IGNORE INTO orders (id, total, method, timeHash, customer_id) VALUES 
+(1, 410, 'UPI', 100, 101),
+(2, 280, 'Cash', 101, 102),
+(3, 320, 'Card', 102, 101);
+
+INSERT OR IGNORE INTO order_items (id, order_id, menu_name, quantity, price_at_time) VALUES 
+(1, 1, 'Butter Chicken', 1, 350),
+(2, 1, 'Garlic Naan', 1, 60),
+(3, 2, 'Paneer Tikka', 1, 280),
+(4, 3, 'Chicken Biryani', 1, 320);
+
+-- DML: Update and Delete Rows
+UPDATE menu SET price = 360 WHERE id = 1;
+DELETE FROM menu WHERE id = 999; -- Just an example
 
 
 -- ===================================================================
 -- MODULE III: Operators in SQL (Comparison, Logical, LIKE)
 -- ===================================================================
--- 1. Logical and Comparison Operators (Dynamic price range)
+-- 1. Logical and Comparison Operators
 SELECT * FROM menu 
-WHERE price > ? AND price < ?;
+WHERE price > 200 AND price < 400;
 
--- 2. Pattern Matching with LIKE (Dynamic search query from frontend)
+-- 2. Pattern Matching with LIKE
 SELECT * FROM menu 
-WHERE name LIKE ?;
+WHERE name LIKE '%Chicken%';
 
 
 -- ===================================================================
 -- MODULE IV: Filtering, Data Sorting and Pagination
 -- ===================================================================
--- 1. IN and BETWEEN Clauses (Dynamic filtering)
+-- 1. IN and BETWEEN Clauses
 SELECT * FROM menu 
-WHERE price BETWEEN ? AND ?;
+WHERE price BETWEEN 100 AND 350;
 
 SELECT * FROM orders 
-WHERE method IN (?, ?);
+WHERE method IN ('UPI', 'Card');
 
--- 2. Ordering and Pagination (Dynamic page limits for the web)
+-- 2. Ordering and Pagination (LIMIT and OFFSET clauses)
 SELECT * FROM menu 
 ORDER BY price DESC 
-LIMIT ? OFFSET ?;
+LIMIT 2 OFFSET 1;
 
 
 -- ===================================================================
 -- MODULE V: Aggregations & Grouping
 -- ===================================================================
--- 1. Data Aggregation Methods (Dynamic time range)
+-- 1. Data Aggregation Methods (SUM, COUNT, AVG)
 SELECT COUNT(*) AS TotalOrders, SUM(total) AS TotalRevenue, AVG(total) AS AvgOrderValue
-FROM orders
-WHERE timeHash > ?;
+FROM orders;
 
 -- 2. Grouping Data with GROUP BY and Filtering with HAVING
+-- Find customers who have spent more than 300 in total
 SELECT customer_id, SUM(total) AS TotalSpent
 FROM orders
 GROUP BY customer_id
-HAVING SUM(total) > ?;
+HAVING SUM(total) > 300;
 
 
 -- ===================================================================
 -- MODULE VI & VII: SQL Expressions, Functions, and Case Clause
 -- ===================================================================
--- 1. SQL Case Clause inside SELECT (Dynamic thresholds)
+-- 1. SQL Case Clause inside SELECT
 SELECT 
     id, 
     total,
     CASE 
-        WHEN total > ? THEN 'High Value'
-        WHEN total > ? THEN 'Medium Value'
+        WHEN total > 400 THEN 'High Value'
+        WHEN total > 200 THEN 'Medium Value'
         ELSE 'Low Value'
     END AS OrderCategory
 FROM orders;
@@ -117,24 +126,22 @@ FROM orders;
 -- ===================================================================
 -- MODULE IX: Joins & Multi-Table Queries
 -- ===================================================================
--- 1. Inner Join (Dynamic order lookup for specific customer)
+-- 1. Inner Join (Linking Orders to their specific items)
 SELECT 
     o.id AS OrderID, 
     o.method AS PaymentMethod, 
     oi.menu_name AS Item, 
     oi.quantity
 FROM orders o
-INNER JOIN order_items oi ON o.id = oi.order_id
-WHERE o.customer_id = ?;
+INNER JOIN order_items oi ON o.id = oi.order_id;
 
--- 2. Left Join (Dynamic customer lookup)
+-- 2. Left Join (Finding customers and their orders, even if no orders exist)
 SELECT 
     c.id AS CustomerID, 
     o.id AS OrderID, 
     o.total
 FROM customers c
-LEFT JOIN orders o ON c.id = o.customer_id
-WHERE c.id = ?;
+LEFT JOIN orders o ON c.id = o.customer_id;
 
 
 -- ===================================================================
@@ -149,10 +156,11 @@ SELECT customer_id, SUM(total) AS TotalRevenue
 FROM orders
 GROUP BY customer_id;
 
--- 3. Querying Using Views (Dynamic limit)
-SELECT * FROM vw_customer_revenue ORDER BY TotalRevenue DESC LIMIT ?;
+-- 3. Querying Using Views
+SELECT * FROM vw_customer_revenue ORDER BY TotalRevenue DESC;
 
--- 4. Subqueries (Dynamic threshold lookup)
+-- 4. Subqueries
+-- Find the customer who placed the most expensive order
 SELECT id, pin 
 FROM customers 
-WHERE id = (SELECT customer_id FROM orders WHERE total > ? ORDER BY total DESC LIMIT 1);
+WHERE id = (SELECT customer_id FROM orders ORDER BY total DESC LIMIT 1);
