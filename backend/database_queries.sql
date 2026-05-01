@@ -1,7 +1,3 @@
--- ===================================================================
--- PART 1: TABLE CREATIONS 
--- ===================================================================
-
 CREATE TABLE IF NOT EXISTS menu (
     id INTEGER PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -38,29 +34,15 @@ CREATE TABLE IF NOT EXISTS customers (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-
-
--- ===================================================================
--- PART 2: MODIFYING DATA (Run these before we SELECT)
--- ===================================================================
-
 INSERT INTO settings (key, value) VALUES ('config', '{"ownerQr":""}');
 UPDATE settings SET value = '{"ownerQr":"upi://pay?pa=..."}' WHERE key = 'config';
 DELETE FROM menu WHERE id = 3; 
 
-
--- ===================================================================
--- PART 3: FETCHING DATA (Must be at the very bottom for online playgrounds!)
--- ===================================================================
-
--- 1. Fetch all orders
 SELECT * FROM orders ORDER BY timeHash DESC;
 
--- 2. Fetch the joined tables (See exact items in the order)
 SELECT o.id AS OrderID, oi.menu_name AS ItemName, oi.quantity AS Qty, oi.price_at_time AS Price, o.method AS Payment
 FROM order_items oi
 INNER JOIN orders o ON oi.order_id = o.id
 WHERE o.id = 1;
 
--- 3. Fetch the final menu (THIS WILL SHOW ON YOUR SCREEN NOW)
 SELECT * FROM menu;
