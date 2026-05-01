@@ -41,22 +41,21 @@ CREATE TABLE IF NOT EXISTS customers (
 
 
 -- ===================================================================
--- PART 2: SIMULATING LIVE WEB APP CHANGES
+-- PART 2: DYNAMIC PREPARED STATEMENTS (Used by Node.js Backend)
 -- ===================================================================
+-- These templates use parameters (?) to securely insert ANY customer or order
+-- preventing SQL injection and working for all elements dynamically.
 
--- 1. A new customer signs up and gets a unique ID and PIN
-INSERT INTO customers (id, pin) VALUES (9999, '1234');
+-- 1. A new customer signs up
+INSERT INTO customers (id, pin) VALUES (?, ?);
 
--- 2. The customer places an order
-INSERT INTO orders (id, total, method, timeHash, customer_id) 
-VALUES (101, 630, 'UPI', 1714567890, 9999);
+-- 2. The customer places an order (id is AUTOINCREMENTed)
+INSERT INTO orders (total, method, timeHash, customer_id) 
+VALUES (?, ?, ?, ?);
 
 -- 3. The items for that order are added to the order_items table
 INSERT INTO order_items (order_id, menu_name, quantity, price_at_time) 
-VALUES (101, 'Butter Chicken', 1, 350);
-
-INSERT INTO order_items (order_id, menu_name, quantity, price_at_time) 
-VALUES (101, 'Paneer Tikka Masala', 1, 280);
+VALUES (?, ?, ?, ?);
 
 -- ===================================================================
 -- PART 3: FETCHING DATA
