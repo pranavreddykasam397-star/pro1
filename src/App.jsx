@@ -329,11 +329,11 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
                                 <h3 className="serif" style={{ color: 'var(--gold)', fontSize: '1.4rem', marginBottom: '1rem' }}>Total: ₹{cartTotal}</h3>
                                 {upiId && (
                                     <a 
-                                        href={`phonepe://pay?pa=${upiId}&pn=Restaurant&am=${cartTotal}&cu=INR`}
+                                        href={`upi://pay?pa=${upiId}&pn=Restaurant&am=${Number(cartTotal).toFixed(2)}&cu=INR`}
                                         className="admin-btn admin-btn--primary"
                                         style={{ display: 'block', textDecoration: 'none', background: '#5f259f', color: 'white', padding: '1rem', borderRadius: '4px', fontWeight: 'bold' }}
                                     >
-                                        Pay ₹{cartTotal} via PhonePe
+                                        Pay ₹{cartTotal} via PhonePe / UPI
                                     </a>
                                 )}
                                 {!ownerQr && !upiId && (
