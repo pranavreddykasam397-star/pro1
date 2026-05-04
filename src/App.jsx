@@ -329,15 +329,15 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
                                 <h3 className="serif" style={{ color: 'var(--gold)', fontSize: '1.4rem', marginBottom: '1rem' }}>Total: ₹{cartTotal}</h3>
                                 {upiId && (
                                     <a 
-                                        href={`phonepe://pay?pa=${upiId}&pn=Restaurant&am=${Number(cartTotal).toFixed(2)}&cu=INR`}
+                                        href={`upi://pay?pa=${upiId}&pn=Restaurant&am=${Number(cartTotal).toFixed(2)}&cu=INR`}
                                         className="admin-btn admin-btn--primary"
-                                        style={{ display: 'block', textDecoration: 'none', background: '#5f259f', color: 'white', padding: '1rem', borderRadius: '4px', fontWeight: 'bold' }}
+                                        style={{ display: 'block', textDecoration: 'none', background: '#27ae60', color: 'white', padding: '1rem', borderRadius: '4px', fontWeight: 'bold' }}
                                     >
-                                        Pay ₹{cartTotal} via PhonePe
+                                        Pay ₹{cartTotal} via Any UPI App
                                     </a>
                                 )}
                                 {!ownerQr && !upiId && (
-                                    <p style={{ color: '#c0392b', fontSize: '0.9rem' }}>QR Code and PhonePe unavailable. Please opt for COD.</p>
+                                    <p style={{ color: '#c0392b', fontSize: '0.9rem' }}>QR Code and UPI unavailable. Please opt for COD.</p>
                                 )}
                             </div>
                         )}
@@ -689,7 +689,7 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
                         
                         {qrUrl && <img src={qrUrl} alt="QR Preview" style={{ width: '150px', height: '150px', objectFit: 'contain', border: '1px solid var(--parchment)', alignSelf: 'center', margin: '0.5rem 0' }} />}
                         
-                        <input className="admin-input" placeholder="PhonePe Number / UPI ID (e.g. 9876543210@ybl)" value={upiIdInput} onChange={e => setUpiIdInput(e.target.value)} />
+                        <input className="admin-input" placeholder="Merchant UPI ID (e.g. 9876543210@ybl, ...@okaxis)" value={upiIdInput} onChange={e => setUpiIdInput(e.target.value)} />
                         <button onClick={updateQr} className="admin-btn admin-btn--primary" style={{ alignSelf: 'flex-start', marginTop: '0.5rem' }}>Save Settings</button>
                     </div>
                 </div>
