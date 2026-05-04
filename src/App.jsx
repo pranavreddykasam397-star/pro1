@@ -483,14 +483,21 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
   const handleAdd = async () => {
     if (!newItem.name || !newItem.price) return;
     try {
-        await fetch(`${API_URL}/menu`, {
+        const res = await fetch(`${API_URL}/menu`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
             body: JSON.stringify({ ...newItem, price: parseInt(newItem.price), timeHash: Date.now() })
         });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to add item');
+        }
         setNewItem({ name: '', price: '', category: '', type: 'veg', imageUrl: '' });
         onDataUpdated();
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.error(e); 
+        alert(`Error: ${e.message}`);
+    }
   };
 
   const handleDelete = async (id) => {

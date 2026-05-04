@@ -288,8 +288,8 @@ app.post('/api/menu', async (req, res) => {
         if (!allowedTypes.includes(normalizedType)) {
             return res.status(422).json({ error: 'Invalid type field' });
         }
-        const allowedCategories = ['CURRIES', 'BREADS', 'BIRYANI', 'FRIED RICE', 'STARTERS', 'DESSERTS', 'DRINKS']; // Existing list
-        if (!category || !allowedCategories.includes(category)) {
+        const normalizedCategory = typeof category === 'string' ? category.trim().toUpperCase() : '';
+        if (!normalizedCategory) {
             return res.status(422).json({ error: 'Invalid category field' });
         }
 
@@ -304,7 +304,7 @@ app.post('/api/menu', async (req, res) => {
 
         const result = await db.run(
             "INSERT INTO menu (name, price, category, type, imageUrl, timeHash) VALUES (?, ?, ?, ?, ?, ?)",
-            [name.trim(), parsedPrice, category || '', type || 'veg', imageUrl || '', parsedTimeHash]
+            [name.trim(), parsedPrice, normalizedCategory, type || 'veg', imageUrl || '', parsedTimeHash]
         );
         const newItem = await db.get("SELECT * FROM menu WHERE id = ?", [result.lastID]);
         res.json(newItem);
