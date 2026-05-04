@@ -8,7 +8,7 @@ import CartSidebar from './components/CartSidebar';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpecial }) {
+function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, dailySpecial }) {
   const [showPayment, setShowPayment] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState('auth'); // 'auth', 'payment', 'signup_success'
   const [isProcessing, setIsProcessing] = useState(false);
@@ -325,10 +325,20 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
                             <div style={{ textAlign: 'center', marginBottom: '2rem', padding: '1.5rem', background: 'white', borderRadius: '4px', border: '1px dashed var(--gold)' }}>
                                 {ownerQr ? (
                                     <img src={ownerQr} alt="QR Code" style={{ maxWidth: '100%', height: '220px', marginBottom: '1rem' }} />
-                                ) : (
-                                    <p style={{ color: '#c0392b', fontSize: '0.9rem' }}>QR Code unavailable. Please opt for COD.</p>
+                                ) : null}
+                                <h3 className="serif" style={{ color: 'var(--gold)', fontSize: '1.4rem', marginBottom: '1rem' }}>Total: ₹{cartTotal}</h3>
+                                {upiId && (
+                                    <a 
+                                        href={`phonepe://pay?pa=${upiId}&pn=Restaurant&am=${cartTotal}&cu=INR`}
+                                        className="admin-btn admin-btn--primary"
+                                        style={{ display: 'block', textDecoration: 'none', background: '#5f259f', color: 'white', padding: '1rem', borderRadius: '4px', fontWeight: 'bold' }}
+                                    >
+                                        Pay ₹{cartTotal} via PhonePe
+                                    </a>
                                 )}
-                                <h3 className="serif" style={{ color: 'var(--gold)', fontSize: '1.4rem' }}>Total: ₹{cartTotal}</h3>
+                                {!ownerQr && !upiId && (
+                                    <p style={{ color: '#c0392b', fontSize: '0.9rem' }}>QR Code and PhonePe unavailable. Please opt for COD.</p>
+                                )}
                             </div>
                         )}
 
@@ -397,11 +407,12 @@ function CustomerView({ menu, cart, setCart, ownerQr, onOrderComplete, dailySpec
   );
 }
 
-function AdminView({ menu, orders, dailySummaries, ownerQr, onDataUpdated, dailySpecial }) {
+function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated, dailySpecial }) {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('adminToken') || !!localStorage.getItem('adminAuth'));
   const [password, setPassword] = useState('');
   const [newItem, setNewItem] = useState({ name: '', price: '', category: '', type: 'veg' });
   const [qrUrl, setQrUrl] = useState(ownerQr);
+  const [upiIdInput, setUpiIdInput] = useState(upiId || '');
   const [dateFilter, setDateFilter] = useState('');
   const [specialForm, setSpecialForm] = useState({ name: '', imageUrl: '', price: '', type: 'veg' });
   const [isGenerating, setIsGenerating] = useState(false);
@@ -495,7 +506,7 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, onDataUpdated, daily
         await fetch(`${API_URL}/settings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-            body: JSON.stringify({ ownerQr: qrUrl })
+            body: JSON.stringify({ ownerQr: qrUrl, upiId: upiIdInput })
         });
         alert('QR code updated.');
     } catch(e) { console.error(e); }
@@ -650,9 +661,29 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, onDataUpdated, daily
 
                 <div className="admin-section" style={{ border: 'none', padding: 0, boxShadow: 'none' }}>
                     <h3 className="serif" style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>QR Payment Settings</h3>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <input className="admin-input" placeholder="QR Image URL" value={qrUrl} onChange={e => setQrUrl(e.target.value)} />
-                        <button onClick={updateQr} className="admin-btn admin-btn--primary">Save</button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label style={{ fontSize: '0.85rem', color: 'var(--text-soft)' }}>Upload QR Code Image</label>
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="admin-input" 
+                            style={{ padding: '0.5rem' }}
+                            onChange={e => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setQrUrl(reader.result);
+                                    reader.readAsDataURL(file);
+                                }
+                            }} 
+                        />
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-soft)', textAlign: 'center' }}>OR</span>
+                        <input className="admin-input" placeholder="Enter QR Image URL" value={qrUrl} onChange={e => setQrUrl(e.target.value)} />
+                        
+                        {qrUrl && <img src={qrUrl} alt="QR Preview" style={{ width: '150px', height: '150px', objectFit: 'contain', border: '1px solid var(--parchment)', alignSelf: 'center', margin: '0.5rem 0' }} />}
+                        
+                        <input className="admin-input" placeholder="PhonePe Number / UPI ID (e.g. 9876543210@ybl)" value={upiIdInput} onChange={e => setUpiIdInput(e.target.value)} />
+                        <button onClick={updateQr} className="admin-btn admin-btn--primary" style={{ alignSelf: 'flex-start', marginTop: '0.5rem' }}>Save Settings</button>
                     </div>
                 </div>
 
@@ -875,6 +906,7 @@ export default function App() {
   const [orders, setOrders] = useState([]);
   const [dailySummaries, setDailySummaries] = useState([]);
   const [ownerQr, setOwnerQr] = useState('');
+  const [upiId, setUpiId] = useState('');
   const [dailySpecial, setDailySpecial] = useState(null);
   const [isOffline, setIsOffline] = useState(false); // [Fix 3.5] Offline flag state
   
@@ -888,6 +920,7 @@ export default function App() {
           setOrders(data.orders.reverse());
           setDailySummaries(data.dailySummaries || []);
           setOwnerQr(data.settings?.ownerQr || '');
+          setUpiId(data.settings?.upiId || '');
           setDailySpecial(data.dailySpecial || null);
           
           // [Fix 3.5] Clear offline flag on success
@@ -912,8 +945,8 @@ export default function App() {
       {/* [Fix 3.5] Visible offline banner */}
       {isOffline && <div style={{ background: '#e74c3c', color: 'white', textAlign: 'center', padding: '10px', position: 'fixed', top: 0, left: 0, width: '100%', zIndex: 9999 }}>⚠️ Connection lost. Trying to reconnect...</div>}
       <Routes>
-        <Route path="/" element={<CustomerView menu={menu} cart={cart} setCart={setCart} ownerQr={ownerQr} onOrderComplete={loadData} dailySpecial={dailySpecial} />} />
-        <Route path="/admin" element={<AdminView menu={menu} orders={orders} dailySummaries={dailySummaries} ownerQr={ownerQr} onDataUpdated={loadData} dailySpecial={dailySpecial} />} />
+        <Route path="/" element={<CustomerView menu={menu} cart={cart} setCart={setCart} ownerQr={ownerQr} upiId={upiId} onOrderComplete={loadData} dailySpecial={dailySpecial} />} />
+        <Route path="/admin" element={<AdminView menu={menu} orders={orders} dailySummaries={dailySummaries} ownerQr={ownerQr} upiId={upiId} onDataUpdated={loadData} dailySpecial={dailySpecial} />} />
       </Routes>
     </BrowserRouter>
   );

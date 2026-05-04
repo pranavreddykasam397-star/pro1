@@ -113,7 +113,7 @@ async function setupDb() {
     // Ensure config exists
     const row = await db.get("SELECT * FROM settings WHERE key = 'config'");
     if (!row) {
-        await db.run("INSERT INTO settings (key, value) VALUES ('config', ?)", [JSON.stringify({ownerQr: ''})]);
+        await db.run("INSERT INTO settings (key, value) VALUES ('config', ?)", [JSON.stringify({ownerQr: '', upiId: ''})]);
     }
 }
 
@@ -252,12 +252,12 @@ app.get('/api/data', async (req, res) => {
         const dailySummaries = await db.all("SELECT * FROM daily_summaries ORDER BY id DESC");
 
         const settingsRow = await db.get("SELECT * FROM settings WHERE key = 'config'");
-        let settings = { ownerQr: '' };
+        let settings = { ownerQr: '', upiId: '' };
         if (settingsRow) {
             try {
-                settings = JSON.parse(settingsRow.value);
+                settings = { ...settings, ...JSON.parse(settingsRow.value) };
             } catch {
-                settings = { ownerQr: '' };
+                settings = { ownerQr: '', upiId: '' };
             }
         }
         
@@ -600,11 +600,12 @@ app.post('/api/settings', requireAdmin, async (req, res) => {
     try {
         const newSettings = req.body || {};
         const ownerQr = newSettings.ownerQr;
-        if (typeof ownerQr !== 'string' || ownerQr.length > 2048) {
+        const upiId = newSettings.upiId || '';
+        if (typeof ownerQr !== 'string') {
             return res.status(400).json({ error: 'Invalid ownerQr' });
         }
 
-        const sanitizedSettings = { ownerQr };
+        const sanitizedSettings = { ownerQr, upiId };
         await db.run(
             "UPDATE settings SET value = ? WHERE key = 'config'",
             [JSON.stringify(sanitizedSettings)]
