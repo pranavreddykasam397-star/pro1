@@ -329,7 +329,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
                                 <h3 className="serif" style={{ color: 'var(--gold)', fontSize: '1.4rem', marginBottom: '1rem' }}>Total: ₹{cartTotal}</h3>
                                 {upiId && (
                                     <a 
-                                        href={`upi://pay?pa=${upiId}&pn=Restaurant&am=${Number(cartTotal).toFixed(2)}&cu=INR`}
+                                        href={`upi://pay?pa=${encodeURIComponent(upiId.trim())}&pn=${encodeURIComponent('Restaurant Order')}&tr=TXN${Date.now()}&tn=${encodeURIComponent('Restaurant Order')}&am=${Number(cartTotal).toFixed(2)}&cu=INR`}
                                         className="admin-btn admin-btn--primary"
                                         style={{ display: 'block', textDecoration: 'none', background: '#27ae60', color: 'white', padding: '1rem', borderRadius: '4px', fontWeight: 'bold' }}
                                     >
