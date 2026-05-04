@@ -129,6 +129,16 @@ async function runMigrations() {
     } catch (e) {
         if (!e.message.includes('duplicate column')) console.error('Migration error (orders.customer_id):', e);
     }
+    try {
+        await db.run("ALTER TABLE orders ADD COLUMN payment_status VARCHAR(50) DEFAULT 'PENDING'");
+    } catch (e) {
+        if (!e.message.includes('duplicate column')) console.error('Migration error (orders.payment_status):', e);
+    }
+    try {
+        await db.run("ALTER TABLE orders ADD COLUMN payment_screenshot TEXT");
+    } catch (e) {
+        if (!e.message.includes('duplicate column')) console.error('Migration error (orders.payment_screenshot):', e);
+    }
 }
 
 // Default menu items — kept in sync with frontend menuList.js
@@ -216,6 +226,8 @@ app.get('/api/data', async (req, res) => {
                 o.time AS time,
                 o.timeHash AS timeHash,
                 o.customer_id AS customer_id,
+                o.payment_status AS payment_status,
+                o.payment_screenshot AS payment_screenshot,
                 oi.menu_name AS name,
                 oi.quantity AS qty,
                 oi.price_at_time AS price
@@ -234,6 +246,8 @@ app.get('/api/data', async (req, res) => {
                     time: row.time,
                     timeHash: row.timeHash,
                     customer_id: row.customer_id,
+                    payment_status: row.payment_status || 'PENDING',
+                    payment_screenshot: row.payment_screenshot || null,
                     items: []
                 });
             }
@@ -374,9 +388,10 @@ app.post('/api/orders', async (req, res) => {
         try {
             await db.run('BEGIN TRANSACTION');
             
+            const paymentStatus = method.trim() === 'COD' ? 'CONFIRMED' : 'PENDING';
             const result = await db.run(
-                "INSERT INTO orders (total, method, time, timeHash, customer_id) VALUES (?, ?, ?, ?, ?)",
-                [serverCalculatedTotal, method.trim(), time, parsedTimeHash, customer_id || null] // [Fix 1.1] Use `serverCalculatedTotal` safely
+                "INSERT INTO orders (total, method, time, timeHash, customer_id, payment_status) VALUES (?, ?, ?, ?, ?, ?)",
+                [serverCalculatedTotal, method.trim(), time, parsedTimeHash, customer_id || null, paymentStatus]
             );
             const orderId = result.lastID;
             
@@ -402,6 +417,36 @@ app.post('/api/orders', async (req, res) => {
         if (e.message === 'Invalid item payload') {
             return res.status(400).json({ error: e.message });
         }
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Update order payment status (Admin only)
+app.patch('/api/orders/:id/status', requireAdmin, async (req, res) => {
+    try {
+        const id = parseInteger(req.params.id);
+        const { status } = req.body || {};
+        if (id === null || !['PENDING', 'CONFIRMED', 'REQUEST_SCREENSHOT'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid parameters' });
+        }
+        await db.run("UPDATE orders SET payment_status = ? WHERE id = ?", [status, id]);
+        res.json({ success: true, status });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Upload payment screenshot (Customer)
+app.post('/api/orders/:id/screenshot', async (req, res) => {
+    try {
+        const id = parseInteger(req.params.id);
+        const { screenshot } = req.body || {};
+        if (id === null || typeof screenshot !== 'string' || !screenshot.startsWith('data:image')) {
+            return res.status(400).json({ error: 'Invalid parameters or screenshot data' });
+        }
+        await db.run("UPDATE orders SET payment_screenshot = ?, payment_status = 'SCREENSHOT_UPLOADED' WHERE id = ?", [screenshot, id]);
+        res.json({ success: true });
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });

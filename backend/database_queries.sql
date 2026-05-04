@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS orders (
     method VARCHAR(50) NOT NULL,
     time DATETIME DEFAULT CURRENT_TIMESTAMP,
     timeHash INTEGER NOT NULL,
-    customer_id INTEGER
+    customer_id INTEGER,
+    payment_status VARCHAR(50) DEFAULT 'PENDING',
+    payment_screenshot TEXT
 );
 
 CREATE TABLE IF NOT EXISTS order_items (

@@ -328,13 +328,16 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
                                 ) : null}
                                 <h3 className="serif" style={{ color: 'var(--gold)', fontSize: '1.4rem', marginBottom: '1rem' }}>Total: ₹{cartTotal}</h3>
                                 {upiId && (
-                                    <a 
-                                        href={`upi://pay?pa=${encodeURIComponent(upiId.trim())}&pn=${encodeURIComponent('Restaurant')}&am=${cartTotal}&cu=INR`}
-                                        className="admin-btn admin-btn--primary"
-                                        style={{ display: 'block', textDecoration: 'none', background: '#27ae60', color: 'white', padding: '1rem', borderRadius: '4px', fontWeight: 'bold' }}
-                                    >
-                                        Pay ₹{cartTotal} via Any UPI App
-                                    </a>
+                                    <>
+                                        <p style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>Please enter exactly <strong style={{color: 'var(--gold)'}}>₹{cartTotal}</strong> in your UPI app.</p>
+                                        <a 
+                                            href={`upi://pay?pa=${encodeURIComponent(upiId.trim())}&pn=${encodeURIComponent('Restaurant')}&cu=INR`}
+                                            className="admin-btn admin-btn--primary"
+                                            style={{ display: 'block', textDecoration: 'none', background: '#27ae60', color: 'white', padding: '1rem', borderRadius: '4px', fontWeight: 'bold' }}
+                                        >
+                                            Open UPI App
+                                        </a>
+                                    </>
                                 )}
                                 {!ownerQr && !upiId && (
                                     <p style={{ color: '#c0392b', fontSize: '0.9rem' }}>QR Code and UPI unavailable. Please opt for COD.</p>
@@ -342,7 +345,11 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
                             </div>
                         )}
 
-                        <button onClick={processPayment} className="admin-btn admin-btn--primary" style={{ width: '100%', padding: '1rem', fontSize: '0.9rem' }}>Confirm & Send Order</button>
+                        {paymentMethod === 'QR' ? (
+                            <button onClick={processPayment} className="admin-btn admin-btn--primary" style={{ width: '100%', padding: '1rem', fontSize: '0.9rem', background: '#5f259f' }}>I have completed the payment</button>
+                        ) : (
+                            <button onClick={processPayment} className="admin-btn admin-btn--primary" style={{ width: '100%', padding: '1rem', fontSize: '0.9rem' }}>Confirm & Send Order</button>
+                        )}
                         <button onClick={() => setShowPayment(false)} className="admin-btn admin-btn--secondary" style={{ width: '100%', marginTop: '0.5rem', border: 'none' }}>Cancel</button>
                     </>
                 )}
@@ -393,7 +400,16 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
                                       <ul style={{ paddingLeft: '1rem', fontSize: '0.85rem' }}>
                                           {o.items.map((it, idx) => <li key={idx}>{it.name} (x{it.qty})</li>)}
                                       </ul>
-                                      <div style={{ marginTop: '0.5rem', textAlign: 'right', fontWeight: 'bold' }}>₹{o.total}</div>
+                                      <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                          <span style={{ fontSize: '0.8rem', padding: '2px 6px', background: o.payment_status === 'REQUEST_SCREENSHOT' ? '#ffeb3b' : '#e0e0e0', borderRadius: '4px', fontWeight: 'bold' }}>{o.payment_status}</span>
+                                          <strong style={{ fontSize: '1.1rem' }}>₹{o.total}</strong>
+                                      </div>
+                                      {o.payment_status === 'REQUEST_SCREENSHOT' && (
+                                          <div style={{ marginTop: '1rem', padding: '0.8rem', background: '#fff9c4', borderRadius: '4px', border: '1px solid #fbc02d' }}>
+                                              <p style={{ color: '#d32f2f', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>The owner has requested a screenshot of your payment.</p>
+                                              <input type="file" accept="image/*" onChange={(e) => uploadScreenshot(o.id, e.target.files[0])} style={{ fontSize: '0.8rem' }} />
+                                          </div>
+                                      )}
                                   </div>
                               ))
                           )}
@@ -588,6 +604,40 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
     }
   };
 
+  const updateOrderStatus = async (orderId, status) => {
+      try {
+          const res = await fetch(`${API_URL}/orders/${orderId}/status`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+              body: JSON.stringify({ status })
+          });
+          if (!res.ok) throw new Error('Failed to update status');
+          onDataUpdated();
+      } catch(e) {
+          alert('Error updating status.');
+      }
+  };
+
+  const uploadScreenshot = async (orderId, file) => {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+          try {
+              const res = await fetch(`${API_URL}/orders/${orderId}/screenshot`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ screenshot: reader.result })
+              });
+              if (!res.ok) throw new Error('Failed to upload');
+              alert('Screenshot uploaded successfully!');
+              fetchMyOrders();
+          } catch(e) {
+              alert('Error uploading screenshot.');
+          }
+      };
+      reader.readAsDataURL(file);
+  };
+
   if (!isAuthenticated) {
     return (
         <div className="admin-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -647,11 +697,29 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
                                     <span className="order-badge">#{o.id}</span>
                                     <small className="text-muted">{o.time}</small>
                                 </div>
-                                <p style={{ fontSize: '0.8rem', margin: '0.3rem 0' }}>{o.method === 'QR' ? 'UPI' : 'COD'}</p>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <p style={{ fontSize: '0.8rem', margin: '0.3rem 0' }}>{o.method === 'QR' ? 'UPI' : 'COD'}</p>
+                                    <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: o.payment_status === 'CONFIRMED' ? '#c8e6c9' : o.payment_status === 'REQUEST_SCREENSHOT' ? '#ffcc80' : o.payment_status === 'SCREENSHOT_UPLOADED' ? '#b3e5fc' : '#e0e0e0', borderRadius: '4px', fontWeight: 'bold' }}>{o.payment_status}</span>
+                                </div>
                                 <ul style={{ paddingLeft: '1rem', fontSize: '0.85rem' }}>
                                     {o.items?.map((it, idx) => <li key={idx}>{it.name} (x{it.quantity || 1})</li>)}
                                 </ul>
                                 <p style={{ marginTop: '0.5rem', fontWeight: '600' }}>₹{o.total}</p>
+                                
+                                {o.method === 'QR' && o.payment_status !== 'CONFIRMED' && (
+                                    <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'var(--cream)', borderRadius: '4px', border: '1px solid var(--parchment)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        {o.payment_screenshot && (
+                                            <div style={{ marginBottom: '0.5rem' }}>
+                                                <p style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem' }}>Customer Screenshot:</p>
+                                                <img src={o.payment_screenshot} alt="Payment Proof" style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', border: '1px solid #ccc' }} />
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button onClick={() => updateOrderStatus(o.id, 'CONFIRMED')} className="admin-btn admin-btn--primary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', background: '#2e7d32' }}>✅ Confirm</button>
+                                            <button onClick={() => updateOrderStatus(o.id, 'REQUEST_SCREENSHOT')} className="admin-btn admin-btn--secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', border: '1px solid #f57c00', color: '#e65100' }}>📸 Req. Screenshot</button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
