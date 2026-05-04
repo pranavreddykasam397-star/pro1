@@ -503,13 +503,20 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
 
   const updateQr = async () => {
     try {
-        await fetch(`${API_URL}/settings`, {
+        const res = await fetch(`${API_URL}/settings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
             body: JSON.stringify({ ownerQr: qrUrl, upiId: upiIdInput })
         });
-        alert('QR code updated.');
-    } catch(e) { console.error(e); }
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to update settings');
+        }
+        alert('QR code and payment settings updated.');
+    } catch(e) { 
+        console.error(e); 
+        alert(`Error: ${e.message}`);
+    }
   };
 
   const handleEndDay = async () => {

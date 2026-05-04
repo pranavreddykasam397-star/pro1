@@ -23,7 +23,7 @@ app.use(cors({
     methods: ['GET', 'POST', 'DELETE'],
     allowedHeaders: ['Content-Type', 'x-admin-token']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Heritage API Endpoints
 app.get('/', (req, res) => res.json({ status: 'Heritage API Live' }));
