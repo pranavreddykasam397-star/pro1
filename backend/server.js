@@ -20,7 +20,7 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: '*',
-    methods: ['GET', 'POST', 'DELETE'],
+    methods: ['GET', 'POST', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'x-admin-token']
 }));
 app.use(express.json({ limit: '10mb' }));
