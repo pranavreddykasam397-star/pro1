@@ -348,10 +348,21 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
                                         <a 
                                             href={`upi://pay?pa=${encodeURIComponent(upiId.trim())}&pn=${encodeURIComponent('Restaurant')}&cu=INR`}
                                             className="admin-btn admin-btn--primary"
-                                            style={{ display: 'block', textDecoration: 'none', background: '#27ae60', color: 'white', padding: '1rem', borderRadius: '4px', fontWeight: 'bold' }}
+                                            style={{ display: 'block', textDecoration: 'none', background: '#27ae60', color: 'white', padding: '1rem', borderRadius: '4px', fontWeight: 'bold', marginBottom: '0.5rem' }}
                                         >
                                             Open UPI App
                                         </a>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                navigator.clipboard.writeText(upiId.trim());
+                                                alert(`Copied: ${upiId.trim()}`);
+                                            }}
+                                            className="admin-btn admin-btn--secondary"
+                                            style={{ width: '100%', fontSize: '0.85rem', padding: '0.8rem' }}
+                                        >
+                                            Copy UPI ID / Number
+                                        </button>
                                     </>
                                 )}
                                 {!ownerQr && !upiId && (
