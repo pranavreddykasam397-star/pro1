@@ -424,7 +424,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
 }
 
 function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated, dailySpecial }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('adminToken') || !!localStorage.getItem('adminAuth'));
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('adminToken'));
   const [password, setPassword] = useState('');
   const [newItem, setNewItem] = useState({ name: '', price: '', category: '', type: 'veg' });
   const [qrUrl, setQrUrl] = useState(ownerQr);
@@ -611,10 +611,13 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
               headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
               body: JSON.stringify({ status })
           });
-          if (!res.ok) throw new Error('Failed to update status');
+          if (!res.ok) {
+              const errData = await res.json().catch(() => ({ error: 'Unknown server error' }));
+              throw new Error(errData.error || 'Failed to update status');
+          }
           onDataUpdated();
       } catch(e) {
-          alert('Error updating status.');
+          alert(`Error updating status: ${e.message}`);
       }
   };
 
