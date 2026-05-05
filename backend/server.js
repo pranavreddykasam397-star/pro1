@@ -77,7 +77,8 @@ async function setupDb() {
             method VARCHAR(50) NOT NULL,
             time DATETIME DEFAULT CURRENT_TIMESTAMP,
             timeHash INTEGER NOT NULL,
-            customer_id INTEGER
+            customer_id INTEGER,
+            phone VARCHAR(20)
         );
         
         -- Topic 7: Foreign Keys (ON DELETE CASCADE)
@@ -138,6 +139,11 @@ async function runMigrations() {
         await db.run("ALTER TABLE orders ADD COLUMN payment_screenshot TEXT");
     } catch (e) {
         if (!e.message.includes('duplicate column')) console.error('Migration error (orders.payment_screenshot):', e);
+    }
+    try {
+        await db.run("ALTER TABLE orders ADD COLUMN phone VARCHAR(20)");
+    } catch (e) {
+        if (!e.message.includes('duplicate column')) console.error('Migration error (orders.phone):', e);
     }
 }
 
@@ -226,6 +232,7 @@ app.get('/api/data', async (req, res) => {
                 o.time AS time,
                 o.timeHash AS timeHash,
                 o.customer_id AS customer_id,
+                o.phone AS phone,
                 o.payment_status AS payment_status,
                 o.payment_screenshot AS payment_screenshot,
                 oi.menu_name AS name,
@@ -246,6 +253,7 @@ app.get('/api/data', async (req, res) => {
                     time: row.time,
                     timeHash: row.timeHash,
                     customer_id: row.customer_id,
+                    phone: row.phone || null,
                     payment_status: row.payment_status || 'PENDING',
                     payment_screenshot: row.payment_screenshot || null,
                     items: []
@@ -340,7 +348,7 @@ app.delete('/api/menu/:id', requireAdmin, async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
     try {
-        const { items, total, method, time, timeHash, customer_id } = req.body || {};
+        const { items, total, method, time, timeHash, customer_id, phone } = req.body || {};
 
         if (!Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ error: 'items must be a non-empty array' });
@@ -390,8 +398,8 @@ app.post('/api/orders', async (req, res) => {
             
             const paymentStatus = method.trim() === 'COD' ? 'CONFIRMED' : 'PENDING';
             const result = await db.run(
-                "INSERT INTO orders (total, method, time, timeHash, customer_id, payment_status) VALUES (?, ?, ?, ?, ?, ?)",
-                [serverCalculatedTotal, method.trim(), time, parsedTimeHash, customer_id || null, paymentStatus]
+                "INSERT INTO orders (total, method, time, timeHash, customer_id, payment_status, phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [serverCalculatedTotal, method.trim(), time, parsedTimeHash, customer_id || null, paymentStatus, phone || null]
             );
             const orderId = result.lastID;
             

@@ -24,6 +24,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
   const [customerOrders, setCustomerOrders] = useState(null);
   const [ordersError, setOrdersError] = useState('');
   const [signupPin, setSignupPin] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   
   const [menuType, setMenuType] = useState('veg');
   const [activeCategory, setActiveCategory] = useState('');
@@ -99,7 +100,8 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
         method: paymentMethod,
         time: new Date().toLocaleTimeString(),
         timeHash: Date.now(),
-        customer_id: customerAuth ? customerAuth.id : null
+        customer_id: customerAuth ? customerAuth.id : null,
+        phone: customerPhone || null
     };
 
     try {
@@ -111,14 +113,16 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
 
         onOrderComplete();
 
-        let text = `*New Order Confirmed*\n\n`;
-        text += `Payment Method: ${paymentMethod === 'QR' ? 'Paid via QR Code' : 'Cash on Delivery'}\n\n`;
-        cart.forEach(i => text += `- ${i.name} (x${i.quantity || 1}) (₹${i.price})\n`);
-        text += `\nTotal: ₹${newOrder.total}`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-
         setCart([]);
         alert("Order sent to restaurant!");
+
+        if (window.confirm("Would you like to manually notify the restaurant via WhatsApp?")) {
+            let text = `*New Order Confirmed*\n\n`;
+            text += `Payment Method: ${paymentMethod === 'QR' ? 'Paid via QR Code' : 'Cash on Delivery'}\n\n`;
+            newOrder.items.forEach(i => text += `- ${i.name} (x${i.quantity || 1}) (₹${i.price})\n`);
+            text += `\nTotal: ₹${newOrder.total}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        }
     } catch (e) {
         console.error(e);
         alert("Failed to submit order.");
@@ -307,6 +311,17 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
                         <h2 className="serif text-center" style={{ marginBottom: '1.5rem', color: 'var(--ink)' }}>Finalize Order</h2>
                         <span className="gold-rule" style={{ margin: '0 auto 2rem' }}></span>
                         
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <p className="eyebrow" style={{ color: 'var(--gold)', marginBottom: '0.5rem' }}>Contact Info (Optional)</p>
+                            <input 
+                                type="tel" 
+                                placeholder="WhatsApp Number" 
+                                className="admin-input" 
+                                value={customerPhone}
+                                onChange={e => setCustomerPhone(e.target.value)}
+                            />
+                        </div>
+
                         <div style={{ marginBottom: '2rem' }}>
                             <p className="eyebrow" style={{ color: 'var(--gold)', marginBottom: '1rem' }}>Payment Method</p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
@@ -701,7 +716,10 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
                                     <small className="text-muted">{o.time}</small>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <p style={{ fontSize: '0.8rem', margin: '0.3rem 0' }}>{o.method === 'QR' ? 'UPI' : 'COD'}</p>
+                                    <p style={{ fontSize: '0.8rem', margin: '0.3rem 0' }}>
+                                        {o.method === 'QR' ? 'UPI' : 'COD'}
+                                        {o.phone && <span style={{ marginLeft: '10px', color: 'var(--gold)' }}>📞 {o.phone}</span>}
+                                    </p>
                                     <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: o.payment_status === 'CONFIRMED' ? '#c8e6c9' : o.payment_status === 'REQUEST_SCREENSHOT' ? '#ffcc80' : o.payment_status === 'SCREENSHOT_UPLOADED' ? '#b3e5fc' : '#e0e0e0', borderRadius: '4px', fontWeight: 'bold' }}>{o.payment_status}</span>
                                 </div>
                                 <ul style={{ paddingLeft: '1rem', fontSize: '0.85rem' }}>
@@ -719,7 +737,13 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
                                         )}
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                                             <button onClick={() => updateOrderStatus(o.id, 'CONFIRMED')} className="admin-btn admin-btn--primary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', background: '#2e7d32' }}>✅ Confirm</button>
-                                            <button onClick={() => updateOrderStatus(o.id, 'REQUEST_SCREENSHOT')} className="admin-btn admin-btn--secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', border: '1px solid #f57c00', color: '#e65100' }}>📸 Req. Screenshot</button>
+                                            <button onClick={() => {
+                                                updateOrderStatus(o.id, 'REQUEST_SCREENSHOT');
+                                                if (o.phone) {
+                                                    const msg = `Hello! We received your order for ₹${o.total}. Please reply with a screenshot of your payment to process the order.`;
+                                                    window.open(`https://wa.me/${o.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                                                }
+                                            }} className="admin-btn admin-btn--secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', border: '1px solid #f57c00', color: '#e65100' }}>📸 Req. Screenshot</button>
                                         </div>
                                     </div>
                                 )}
