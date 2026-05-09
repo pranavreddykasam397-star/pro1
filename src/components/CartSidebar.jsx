@@ -1,4 +1,6 @@
 import React from 'react';
+import CartGame from './CartGame';
+import ClickerGame from './ClickerGame';
 
 export default function CartSidebar({ 
     isOpen, 
@@ -6,8 +8,27 @@ export default function CartSidebar({
     cartItems, 
     onUpdateQuantity, 
     onPlaceOrder,
-    cartTotal 
+    cartTotal,
+    discountPercent = 0,
+    discountAmount = 0,
+    finalTotal = 0
 }) {
+    let progress = 0;
+    let message = "";
+    if (cartTotal === 0) {
+        progress = 0;
+        message = "Add items to unlock discounts!";
+    } else if (cartTotal < 1500) {
+        progress = (cartTotal / 1500) * 100;
+        message = `Add ₹${1500 - cartTotal} more to unlock 10% discount!`;
+    } else if (cartTotal < 2000) {
+        progress = ((cartTotal - 1500) / 500) * 100;
+        message = `Add ₹${2000 - cartTotal} more to unlock 15% discount! (10% unlocked ✨)`;
+    } else {
+        progress = 100;
+        message = "🎉 You've unlocked the maximum 15% discount!";
+    }
+
     return (
         <>
             <div 
@@ -20,6 +41,18 @@ export default function CartSidebar({
                     <h2 className="cart__title">Your Selection</h2>
                     <button className="cart__close" onClick={onClose}>&times;</button>
                 </div>
+
+                <div style={{ padding: '1rem', background: 'var(--cream-deep)', borderBottom: '1px solid var(--parchment)' }}>
+                    <p style={{ fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 'bold', color: discountPercent > 0 ? '#27ae60' : 'var(--ink)' }}>
+                        {message}
+                    </p>
+                    <div style={{ width: '100%', height: '8px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${Math.min(progress, 100)}%`, height: '100%', background: discountPercent === 15 ? '#27ae60' : 'var(--gold)', transition: 'width 0.3s ease' }}></div>
+                    </div>
+                </div>
+
+                <CartGame />
+                <ClickerGame />
 
                 <div className="cart__items">
                     {cartItems.length === 0 ? (
@@ -60,6 +93,16 @@ export default function CartSidebar({
                     <div className="cart__total-row">
                         <span className="cart__total-label">Subtotal</span>
                         <span className="cart__total-amount">₹{cartTotal}</span>
+                    </div>
+                    {discountAmount > 0 && (
+                        <div className="cart__total-row" style={{ color: '#27ae60' }}>
+                            <span className="cart__total-label">Discount ({discountPercent}%)</span>
+                            <span className="cart__total-amount">- ₹{discountAmount}</span>
+                        </div>
+                    )}
+                    <div className="cart__total-row" style={{ borderTop: '1px solid var(--parchment)', paddingTop: '0.5rem', marginTop: '0.5rem' }}>
+                        <span className="cart__total-label" style={{ fontWeight: 'bold' }}>Final Total</span>
+                        <span className="cart__total-amount" style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--gold)' }}>₹{finalTotal || cartTotal}</span>
                     </div>
                     
                     <button 

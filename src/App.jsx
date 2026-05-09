@@ -55,6 +55,15 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
   const cartTotal = cart.reduce((sum, i) => sum + (i.price * (i.quantity || 1)), 0);
   const cartCount = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
 
+  let discountPercent = 0;
+  if (cartTotal >= 2000) {
+      discountPercent = 15;
+  } else if (cartTotal >= 1500) {
+      discountPercent = 10;
+  }
+  const discountAmount = Math.round((cartTotal * discountPercent) / 100);
+  const finalTotal = cartTotal - discountAmount;
+
   // [Fix 3.4] Wrap derived array in useMemo to prevent render loops
   const availableCategories = useMemo(() => {
       return [...new Set(
@@ -96,13 +105,21 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
     setIsProcessing(true);
     const newOrder = {
         items: [...cart],
-        total: cartTotal,
+        subtotal: cartTotal,
+        discount: discountAmount,
+        total: finalTotal,
         method: paymentMethod,
         time: new Date().toLocaleTimeString(),
         timeHash: Date.now(),
         customer_id: customerAuth ? customerAuth.id : null,
         phone: customerPhone || null
     };
+
+    // Open WhatsApp tab synchronously before async fetch to bypass popup blockers
+    let whatsappTab = null;
+    if (window.confirm("Would you like to manually notify the restaurant via WhatsApp?")) {
+        whatsappTab = window.open('about:blank', '_blank');
+    }
 
     try {
         await fetch(`${API_URL}/orders`, {
@@ -116,16 +133,17 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
         setCart([]);
         alert("Order sent to restaurant!");
 
-        if (window.confirm("Would you like to manually notify the restaurant via WhatsApp?")) {
+        if (whatsappTab) {
             let text = `*New Order Confirmed*\n\n`;
             text += `Payment Method: ${paymentMethod === 'QR' ? 'Paid via QR Code' : 'Cash on Delivery'}\n\n`;
             newOrder.items.forEach(i => text += `- ${i.name} (x${i.quantity || 1}) (₹${i.price})\n`);
             text += `\nTotal: ₹${newOrder.total}`;
-            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            whatsappTab.location.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
         }
     } catch (e) {
         console.error(e);
         alert("Failed to submit order.");
+        if (whatsappTab) whatsappTab.close();
     } finally {
         setIsProcessing(false);
         setShowPayment(false);
@@ -151,6 +169,31 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
       } finally {
           setIsProcessing(false);
       }
+  };
+
+  const uploadScreenshot = async (orderId, file) => {
+      if (!file) return;
+      if (!customerAuth || !ordersPin) return alert('Authentication required to upload screenshot.');
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+          try {
+              const res = await fetch(`${API_URL}/orders/${orderId}/screenshot`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                      screenshot: reader.result, 
+                      customer_id: customerAuth.id, 
+                      pin: ordersPin 
+                  })
+              });
+              if (!res.ok) throw new Error('Failed to upload');
+              alert('Screenshot uploaded successfully!');
+              fetchMyOrders();
+          } catch(e) {
+              alert('Error uploading screenshot.');
+          }
+      };
+      reader.readAsDataURL(file);
   };
 
   const fetchMyOrders = async () => {
@@ -194,6 +237,9 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
         onUpdateQuantity={updateQuantity}
         onPlaceOrder={initiateCheckout}
         cartTotal={cartTotal}
+        discountPercent={discountPercent}
+        discountAmount={discountAmount}
+        finalTotal={finalTotal}
       />
       
       <Hero onExploreClick={scrollToMenu} />
@@ -341,10 +387,10 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
                                 {ownerQr ? (
                                     <img src={ownerQr} alt="QR Code" style={{ maxWidth: '100%', height: '220px', marginBottom: '1rem' }} />
                                 ) : null}
-                                <h3 className="serif" style={{ color: 'var(--gold)', fontSize: '1.4rem', marginBottom: '1rem' }}>Total: ₹{cartTotal}</h3>
+                                <h3 className="serif" style={{ color: 'var(--gold)', fontSize: '1.4rem', marginBottom: '1rem' }}>Total: ₹{finalTotal}</h3>
                                 {upiId && (
                                     <>
-                                        <p style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>Please enter exactly <strong style={{color: 'var(--gold)'}}>₹{cartTotal}</strong> in your UPI app.</p>
+                                        <p style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>Please enter exactly <strong style={{color: 'var(--gold)'}}>₹{finalTotal}</strong> in your UPI app.</p>
                                         <a 
                                             href={`upi://pay?pa=${encodeURIComponent(upiId.trim())}&pn=${encodeURIComponent('Restaurant')}&cu=INR`}
                                             className="admin-btn admin-btn--primary"
@@ -645,26 +691,6 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
       } catch(e) {
           alert(`Error updating status: ${e.message}`);
       }
-  };
-
-  const uploadScreenshot = async (orderId, file) => {
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-          try {
-              const res = await fetch(`${API_URL}/orders/${orderId}/screenshot`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ screenshot: reader.result })
-              });
-              if (!res.ok) throw new Error('Failed to upload');
-              alert('Screenshot uploaded successfully!');
-              fetchMyOrders();
-          } catch(e) {
-              alert('Error uploading screenshot.');
-          }
-      };
-      reader.readAsDataURL(file);
   };
 
   if (!isAuthenticated) {
@@ -1032,16 +1058,20 @@ export default function App() {
   
   const loadData = async () => {
       try {
-          const res = await fetch(`${API_URL}/data`);
+          const token = localStorage.getItem('adminToken');
+          const endpoint = token ? `${API_URL}/admin/data` : `${API_URL}/data`;
+          const headers = token ? { 'x-admin-token': token } : {};
+          
+          const res = await fetch(endpoint, { headers });
           if (!res.ok) throw new Error('API request failed'); // [Fix 3.5] Propagate failure explicitly
           const data = await res.json();
           
-          setMenu(data.menu);
-          setOrders(data.orders.reverse());
-          setDailySummaries(data.dailySummaries || []);
-          setOwnerQr(data.settings?.ownerQr || '');
-          setUpiId(data.settings?.upiId || '');
-          setDailySpecial(data.dailySpecial || null);
+          setMenu(data.menu || []);
+          if (data.orders) setOrders(data.orders.reverse());
+          if (data.dailySummaries) setDailySummaries(data.dailySummaries);
+          if (data.settings?.ownerQr) setOwnerQr(data.settings.ownerQr);
+          if (data.settings?.upiId) setUpiId(data.settings.upiId);
+          if (data.dailySpecial !== undefined) setDailySpecial(data.dailySpecial);
           
           // [Fix 3.5] Clear offline flag on success
           if (isOffline) setIsOffline(false);

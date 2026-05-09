@@ -19,7 +19,13 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-    origin: '*',
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'x-admin-token']
 }));
@@ -31,6 +37,7 @@ app.get('/', (req, res) => res.json({ status: 'Heritage API Live' }));
 let db;
 
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
 function requireAdmin(req, res, next) {
     const token = req.header('x-admin-token');
@@ -38,13 +45,23 @@ function requireAdmin(req, res, next) {
         return res.status(500).json({ error: 'Admin auth not configured' });
     }
     if (!token) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        return res.status(401).json({ error: 'Access denied' });
     }
     try {
         jwt.verify(token, ADMIN_TOKEN);
         next();
-    } catch(e) {
-        return res.status(401).json({ error: 'Unauthorized' });
+    } catch (e) {
+        res.status(401).json({ error: 'Invalid token' });
+    }
+}
+
+function isValidUrl(string) {
+    if (!string) return true; // allow empty strings if optional
+    try {
+        const url = new URL(string);
+        return url.protocol === 'http:' || url.protocol === 'https:' || url.protocol === 'data:';
+    } catch (_) {
+        return false;
     }
 }
 
@@ -53,7 +70,7 @@ async function setupDb() {
         filename: './database.sqlite',
         driver: sqlite3.Database
     });
-    
+
     await db.run("PRAGMA foreign_keys = ON;"); // [Fix 1.4] Enforce FK constraints
     await db.run("PRAGMA journal_mode = WAL;"); // [Fix 2.1] Enable WAL mode
 
@@ -114,7 +131,7 @@ async function setupDb() {
     // Ensure config exists
     const row = await db.get("SELECT * FROM settings WHERE key = 'config'");
     if (!row) {
-        await db.run("INSERT INTO settings (key, value) VALUES ('config', ?)", [JSON.stringify({ownerQr: '', upiId: ''})]);
+        await db.run("INSERT INTO settings (key, value) VALUES ('config', ?)", [JSON.stringify({ ownerQr: '', upiId: '' })]);
     }
 }
 
@@ -151,14 +168,11 @@ async function runMigrations() {
 const fs = require('fs');
 let initialMenu = [];
 try {
-    const menuPath = path.join(__dirname, '../src/menuList.js');
+    const menuPath = path.join(__dirname, 'menuData.json');
     const content = fs.readFileSync(menuPath, 'utf-8');
-    const match = content.match(/export const initialMenu = (\[[\s\S]*\]);/);
-    if (match) {
-        initialMenu = new Function("return " + match[1])();
-    }
+    initialMenu = JSON.parse(content);
 } catch (e) {
-    console.error("Failed to load initialMenu from frontend:", e);
+    console.error("Failed to load initialMenu from menuData.json:", e);
 }
 
 // Seed (refresh) the menu table: clear existing rows, re-insert defaults
@@ -201,7 +215,6 @@ function parseInteger(value) {
 }
 
 // [Fix 1.3] New auth route
-const bcrypt = require('bcrypt');
 
 app.post('/api/auth/login', async (req, res) => {
     try {
@@ -209,9 +222,9 @@ app.post('/api/auth/login', async (req, res) => {
         // Hardcoded bcrypt hash of 'owner123'. 
         const storedHash = process.env.OWNER_HASH || "$2b$10$0DAV3UE6KM9GGdOd0ricMunbm2hmST3w6JcPHJGCUN8DLYXwpG7Tm";
         const isMatch = await bcrypt.compare(password, storedHash);
-        
+
         if (!isMatch) return res.status(401).json({ error: 'Invalid password' });
-        
+
         const token = jwt.sign({ role: 'admin' }, ADMIN_TOKEN, { expiresIn: '1d' });
         res.json({ token });
     } catch (e) {
@@ -219,7 +232,35 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// Public data endpoint
 app.get('/api/data', async (req, res) => {
+    try {
+        const menu = await db.all("SELECT * FROM menu");
+        const settingsRow = await db.get("SELECT * FROM settings WHERE key = 'config'");
+        let settings = { upiId: '' };
+        if (settingsRow) {
+            try {
+                const parsed = JSON.parse(settingsRow.value);
+                settings.upiId = parsed.upiId || '';
+            } catch { }
+        }
+
+        const dailySpecialRow = await db.get("SELECT * FROM settings WHERE key = 'daily_special'");
+        let dailySpecial = null;
+        if (dailySpecialRow) {
+            try {
+                dailySpecial = JSON.parse(dailySpecialRow.value);
+            } catch { }
+        }
+
+        res.json({ menu, settings, dailySpecial });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin data endpoint
+app.get('/api/admin/data', requireAdmin, async (req, res) => {
     try {
         const menu = await db.all("SELECT * FROM menu");
 
@@ -282,28 +323,31 @@ app.get('/api/data', async (req, res) => {
                 settings = { ownerQr: '', upiId: '' };
             }
         }
-        
+
         const dailySpecialRow = await db.get("SELECT * FROM settings WHERE key = 'daily_special'");
         let dailySpecial = null;
         if (dailySpecialRow) {
             try {
                 dailySpecial = JSON.parse(dailySpecialRow.value);
-            } catch {}
+            } catch { }
         }
 
         res.json({ menu, orders, dailySummaries, settings, dailySpecial });
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-app.post('/api/menu', async (req, res) => {
+app.post('/api/menu', requireAdmin, async (req, res) => {
     try {
         const { name, price, category, type, imageUrl, timeHash } = req.body || {};
         if (typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 255) {
             return res.status(400).json({ error: 'Invalid menu item name' });
         }
-        
+        if (imageUrl && !isValidUrl(imageUrl)) {
+            return res.status(400).json({ error: 'Invalid imageUrl' });
+        }
+
         // [Fix 2.4] Validate category and type
         const allowedTypes = ['veg', 'non-veg', 'nonveg'];
         const normalizedType = typeof type === 'string' ? type.trim().toLowerCase() : 'veg';
@@ -330,7 +374,7 @@ app.post('/api/menu', async (req, res) => {
         );
         const newItem = await db.get("SELECT * FROM menu WHERE id = ?", [result.lastID]);
         res.json(newItem);
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
@@ -341,7 +385,7 @@ app.delete('/api/menu/:id', requireAdmin, async (req, res) => {
         if (id === null) return res.status(400).json({ error: 'Invalid id' });
         await db.run("DELETE FROM menu WHERE id = ?", [id]);
         res.json({ success: true, id });
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
@@ -368,60 +412,60 @@ app.post('/api/orders', async (req, res) => {
 
         const normalizedItems = [];
         let serverCalculatedTotal = 0; // [Fix 1.1] Recalculate total server-side
-        
+
         for (let item of items) {
             const itemId = parseInteger(item?.id);
             const itemName = typeof item?.name === 'string' ? item.name.trim() : '';
             const qty = parseInteger(item?.quantity);
             // [Fix 1.5] Enforce quantity max 99
-            if (!itemName || itemName.length > 255 || qty === null || qty <= 0 || qty > 99) { 
+            if (!itemName || itemName.length > 255 || qty === null || qty <= 0 || qty > 99) {
                 return res.status(422).json({ error: 'Invalid item payload' });
             }
-            
+
             // [Fix 1.1] lookup price from db securely using item ID or name
-            const dbItem = itemId ? 
+            const dbItem = itemId ?
                 await db.get("SELECT price FROM menu WHERE id = ?", [itemId]) :
                 await db.get("SELECT price FROM menu WHERE name = ?", [itemName]);
-                
+
             if (!dbItem) {
                 return res.status(400).json({ error: 'Item does not exist in menu' });
             }
             const actualPrice = dbItem.price;
             serverCalculatedTotal += (actualPrice * qty);
-            
+
             normalizedItems.push({ name: itemName, quantity: qty, price: actualPrice, id: itemId });
         }
-        
+
         // Topic 9: Transactions (BEGIN and COMMIT) ensuring atomicity
         try {
             await db.run('BEGIN TRANSACTION');
-            
+
             const paymentStatus = method.trim() === 'COD' ? 'CONFIRMED' : 'PENDING';
             const result = await db.run(
                 "INSERT INTO orders (total, method, time, timeHash, customer_id, payment_status, phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 [serverCalculatedTotal, method.trim(), time, parsedTimeHash, customer_id || null, paymentStatus, phone || null]
             );
             const orderId = result.lastID;
-            
+
             for (let item of normalizedItems) {
                 await db.run(
                     "INSERT INTO order_items (order_id, menu_name, quantity, price_at_time) VALUES (?, ?, ?, ?)",
                     [orderId, item.name, item.quantity, item.price]
                 );
             }
-            
+
             await db.run('COMMIT');
-            
+
             const newOrder = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
             const orderItems = await db.all("SELECT menu_name AS name, quantity AS qty, price_at_time AS price FROM order_items WHERE order_id = ?", [orderId]);
             newOrder.items = orderItems;
-            
+
             res.json(newOrder);
-        } catch(transactionError) {
+        } catch (transactionError) {
             await db.run('ROLLBACK');
             throw transactionError; // Pass to the outer catch handler
         }
-    } catch(e) {
+    } catch (e) {
         if (e.message === 'Invalid item payload') {
             return res.status(400).json({ error: e.message });
         }
@@ -448,10 +492,29 @@ app.patch('/api/orders/:id/status', requireAdmin, async (req, res) => {
 app.post('/api/orders/:id/screenshot', async (req, res) => {
     try {
         const id = parseInteger(req.params.id);
-        const { screenshot } = req.body || {};
+        const { screenshot, customer_id, pin } = req.body || {};
         if (id === null || typeof screenshot !== 'string' || !screenshot.startsWith('data:image')) {
             return res.status(400).json({ error: 'Invalid parameters or screenshot data' });
         }
+        if (!customer_id || !pin) {
+            return res.status(400).json({ error: 'Customer ID and PIN required' });
+        }
+
+        const order = await db.get("SELECT customer_id FROM orders WHERE id = ?", [id]);
+        if (!order || order.customer_id !== parseInt(customer_id)) {
+            return res.status(403).json({ error: 'Order not found or access denied' });
+        }
+
+        const customer = await db.get("SELECT * FROM customers WHERE id = ?", [parseInt(customer_id)]);
+        if (!customer) {
+            return res.status(401).json({ error: 'Invalid Customer ID or PIN' });
+        }
+
+        const pinMatch = await bcrypt.compare(pin.toString(), customer.pin);
+        if (!pinMatch) {
+            return res.status(401).json({ error: 'Invalid Customer ID or PIN' });
+        }
+
         await db.run("UPDATE orders SET payment_screenshot = ?, payment_status = 'SCREENSHOT_UPLOADED' WHERE id = ?", [screenshot, id]);
         res.json({ success: true });
     } catch (e) {
@@ -466,24 +529,25 @@ app.post('/api/customers/signup', async (req, res) => {
         if (!pin || pin.toString().length !== 4) {
             return res.status(400).json({ error: 'A 4-digit PIN is required' });
         }
-        
+
         let newId;
         let isUnique = false;
         let attempts = 0;
-        
+
         while (!isUnique && attempts < 10) {
             newId = Math.floor(1000 + Math.random() * 9000); // 4-digit ID
             const existing = await db.get("SELECT id FROM customers WHERE id = ?", [newId]);
             if (!existing) isUnique = true;
             attempts++;
         }
-        
+
         if (!isUnique) return res.status(500).json({ error: 'Failed to generate unique ID' });
-        
-        await db.run("INSERT INTO customers (id, pin) VALUES (?, ?)", [newId, pin.toString()]);
-        
+
+        const hashedPin = await bcrypt.hash(pin.toString(), 10);
+        await db.run("INSERT INTO customers (id, pin) VALUES (?, ?)", [newId, hashedPin]);
+
         res.json({ id: newId, pin: pin.toString() });
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
@@ -493,12 +557,17 @@ app.post('/api/customers/history', async (req, res) => {
     try {
         const { id, pin } = req.body || {};
         if (!id || !pin) return res.status(400).json({ error: 'ID and PIN required' });
-        
+
         const customer = await db.get("SELECT * FROM customers WHERE id = ?", [parseInt(id)]);
-        if (!customer || customer.pin !== pin.toString()) {
+        if (!customer) {
             return res.status(401).json({ error: 'Invalid ID or PIN' });
         }
-        
+
+        const pinMatch = await bcrypt.compare(pin.toString(), customer.pin);
+        if (!pinMatch) {
+            return res.status(401).json({ error: 'Invalid ID or PIN' });
+        }
+
         const rows = await db.all(`
             SELECT
                 o.id AS id,
@@ -537,7 +606,7 @@ app.post('/api/customers/history', async (req, res) => {
         }
 
         res.json({ orders: Array.from(ordersById.values()) });
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
@@ -547,12 +616,12 @@ app.get('/api/admin/customers/:id/orders', requireAdmin, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
         if (!id) return res.status(400).json({ error: 'Invalid ID' });
-        
+
         const customer = await db.get("SELECT * FROM customers WHERE id = ?", [id]);
         if (!customer) {
             return res.status(404).json({ error: 'Customer not found' });
         }
-        
+
         const rows = await db.all(`
             SELECT
                 o.id AS id,
@@ -590,8 +659,8 @@ app.get('/api/admin/customers/:id/orders', requireAdmin, async (req, res) => {
             }
         }
 
-        res.json({ orders: Array.from(ordersById.values()), pin: customer.pin });
-    } catch(e) {
+        res.json({ orders: Array.from(ordersById.values()) });
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
@@ -633,18 +702,18 @@ app.post('/api/end-day', requireAdmin, async (req, res) => {
                 [dateStr, totalRevenue, orderCount, JSON.stringify(summaryData)]
             );
             await db.run("DELETE FROM orders"); // Cascades to order_items
-            
+
             // Remove the daily special at the end of the day
             await db.run("DELETE FROM menu WHERE isSpecial = 1 OR category = 'TODAY''S SPECIAL'");
             await db.run("DELETE FROM settings WHERE key = 'daily_special'");
 
             await db.run('COMMIT');
             res.json({ success: true, summary: summaryData });
-        } catch(e) {
+        } catch (e) {
             await db.run('ROLLBACK');
             throw e;
         }
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
@@ -664,7 +733,7 @@ app.post('/api/settings', requireAdmin, async (req, res) => {
             [JSON.stringify(sanitizedSettings)]
         );
         res.json(sanitizedSettings);
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
@@ -674,6 +743,9 @@ app.post('/api/generate-special', requireAdmin, async (req, res) => {
         const { name, imageUrl, price, type } = req.body || {};
         if (typeof name !== 'string' || name.trim().length === 0) {
             return res.status(400).json({ error: 'Invalid special item name' });
+        }
+        if (imageUrl && !isValidUrl(imageUrl)) {
+            return res.status(400).json({ error: 'Invalid imageUrl' });
         }
         const parsedPrice = parseInteger(price);
         if (parsedPrice === null || parsedPrice <= 0) {
@@ -716,13 +788,13 @@ app.post('/api/generate-special', requireAdmin, async (req, res) => {
             );
 
             await db.run('COMMIT');
-        } catch(e) {
+        } catch (e) {
             await db.run('ROLLBACK');
             throw e;
         }
 
         res.json(specialObj);
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
@@ -736,29 +808,31 @@ app.delete('/api/daily-special', requireAdmin, async (req, res) => {
             await db.run("DELETE FROM settings WHERE key = 'daily_special'");
             await db.run('COMMIT');
             res.json({ success: true });
-        } catch(e) {
+        } catch (e) {
             await db.run('ROLLBACK');
             throw e;
         }
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
 // --- LIVE SQL PRESENTATION VIEWER ---
-app.get('/api/sql-dump', async (req, res) => {
+// Development/presentation endpoint — ensure this is removed or protected in production
+app.get('/api/sql-dump', requireAdmin, async (req, res) => {
     try {
         const orders = await db.all("SELECT * FROM orders ORDER BY id DESC");
         const order_items = await db.all("SELECT * FROM order_items ORDER BY id DESC");
         const customers = await db.all("SELECT * FROM customers ORDER BY id DESC");
         const menu = await db.all("SELECT * FROM menu ORDER BY id DESC");
         res.json({ orders, order_items, customers, menu });
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-app.get('/sql-viewer', (req, res) => {
+// Development/presentation endpoint — ensure this is removed or protected in production
+app.get('/sql-viewer', requireAdmin, (req, res) => {
     const html = `
     <!DOCTYPE html>
     <html lang="en">
