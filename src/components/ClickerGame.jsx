@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function ClickerGame({ onWin }) {
+export default function ClickerGame({ onWin, onLose }) {
     const [clicks, setClicks] = useState(0);
     const [timeLeft, setTimeLeft] = useState(15);
     const [gameState, setGameState] = useState('idle'); // 'idle', 'playing', 'won', 'lost'
@@ -13,6 +13,7 @@ export default function ClickerGame({ onWin }) {
                 setTimeLeft(prev => {
                     if (prev <= 1) {
                         setGameState('lost');
+                        if (onLose) setTimeout(() => onLose(), 1500);
                         return 0;
                     }
                     return prev - 1;
@@ -20,6 +21,7 @@ export default function ClickerGame({ onWin }) {
             }, 1000);
         } else if (timeLeft === 0 && gameState === 'playing') {
             setGameState('lost');
+            if (onLose) setTimeout(() => onLose(), 1500);
         }
 
         return () => {
@@ -39,7 +41,7 @@ export default function ClickerGame({ onWin }) {
 
         if (newClicks >= targetClicks && timeLeft > 0) {
             setGameState('won');
-            if (onWin) onWin();
+            if (onWin) setTimeout(() => onWin(), 1500);
         }
     };
 

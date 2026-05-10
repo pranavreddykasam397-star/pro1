@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function CartGame() {
+export default function CartGame({ onWin, onLose }) {
     const [realSwitchIndex, setRealSwitchIndex] = useState(() => Math.floor(Math.random() * 4));
     const [mistakeCount, setMistakeCount] = useState(0);
     const [gameState, setGameState] = useState('playing'); // 'playing', 'won', 'lost'
@@ -11,11 +11,13 @@ export default function CartGame() {
 
         if (index === realSwitchIndex) {
             setGameState('won');
+            if (onWin) setTimeout(() => onWin(), 1500);
         } else {
             const newMistakeCount = mistakeCount + 1;
             setMistakeCount(newMistakeCount);
             if (newMistakeCount >= maxMistakes) {
                 setGameState('lost');
+                if (onLose) setTimeout(() => onLose(), 1500);
             }
         }
     };

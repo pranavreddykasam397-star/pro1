@@ -13,6 +13,18 @@ export default function CartSidebar({
     discountAmount = 0,
     finalTotal = 0
 }) {
+    const [gameStage, setGameStage] = React.useState('idle');
+    const [prevTotal, setPrevTotal] = React.useState(0);
+
+    React.useEffect(() => {
+        if (cartTotal >= 1500 && prevTotal < 1500) {
+            setGameStage('prompt');
+        } else if (cartTotal < 1500) {
+            setGameStage('idle');
+        }
+        setPrevTotal(cartTotal);
+    }, [cartTotal, prevTotal]);
+
     let progress = 0;
     let message = "";
     if (cartTotal === 0) {
@@ -51,8 +63,44 @@ export default function CartSidebar({
                     </div>
                 </div>
 
-                <CartGame />
-                <ClickerGame />
+                {gameStage === 'prompt' && (
+                    <div style={{ padding: '1rem', background: 'var(--cream)', borderBottom: '1px solid var(--parchment)', textAlign: 'center' }}>
+                        <p style={{ marginBottom: '1rem', fontWeight: 'bold', color: 'var(--gold)' }}>Play a mini-game to unlock your discount!</p>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button 
+                                className="admin-btn admin-btn--primary" 
+                                style={{ flex: 1, padding: '0.8rem' }} 
+                                onClick={() => setGameStage('game1')}
+                            >
+                                Play Game
+                            </button>
+                            <button 
+                                className="admin-btn admin-btn--secondary" 
+                                style={{ flex: 1, padding: '0.8rem' }} 
+                                onClick={() => setGameStage('done')}
+                            >
+                                Skip
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {gameStage === 'game1' && (
+                    <CartGame 
+                        onWin={() => setGameStage('game2')} 
+                        onLose={() => setGameStage('done')} 
+                    />
+                )}
+
+                {gameStage === 'game2' && (
+                    <ClickerGame 
+                        onWin={() => {
+                            setGameStage('done');
+                            onPlaceOrder();
+                        }} 
+                        onLose={() => setGameStage('done')} 
+                    />
+                )}
 
                 <div className="cart__items">
                     {cartItems.length === 0 ? (
