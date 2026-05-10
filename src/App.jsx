@@ -326,7 +326,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
 
       {showPayment && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(26,22,16,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, backdropFilter: 'blur(4px)' }}>
-            <div style={{ background: 'var(--cream)', padding: '2.5rem', borderRadius: '4px', maxWidth: '450px', width: '90%', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--parchment)' }}>
+            <div style={{ background: 'var(--cream)', padding: '2.5rem', borderRadius: '4px', maxWidth: '450px', width: '90%', maxHeight: '90vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--parchment)' }}>
                 {isProcessing ? (
                     <div style={{ textAlign: 'center', padding: '3rem 0' }}>
                         <h2 className="serif">Simmering...</h2>
