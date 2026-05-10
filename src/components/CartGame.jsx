@@ -22,12 +22,6 @@ export default function CartGame({ onWin, onLose }) {
         }
     };
 
-    const resetGame = () => {
-        setRealSwitchIndex(Math.floor(Math.random() * 4));
-        setMistakeCount(0);
-        setGameState('playing');
-    };
-
     let bulbColor = "gray";
     let statusText = "Guess the switch!";
     let statusColor = "var(--ink)";
@@ -75,16 +69,6 @@ export default function CartGame({ onWin, onLose }) {
                     </button>
                 ))}
             </div>
-            
-            {(gameState === 'won' || gameState === 'lost') && (
-                <button 
-                    onClick={resetGame}
-                    className="admin-btn admin-btn--primary"
-                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}
-                >
-                    Play Again
-                </button>
-            )}
         </div>
     );
 }

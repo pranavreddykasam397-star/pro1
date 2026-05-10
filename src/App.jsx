@@ -14,6 +14,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('QR');
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isDiscountUnlocked, setIsDiscountUnlocked] = useState(false);
   const [customerAuth, setCustomerAuth] = useState(() => {
       const saved = localStorage.getItem('customerAuth');
       return saved ? JSON.parse(saved) : null;
@@ -55,11 +56,19 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
   const cartTotal = cart.reduce((sum, i) => sum + (i.price * (i.quantity || 1)), 0);
   const cartCount = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
 
+  useEffect(() => {
+      if (cartTotal < 1500) {
+          setIsDiscountUnlocked(false);
+      }
+  }, [cartTotal]);
+
   let discountPercent = 0;
-  if (cartTotal >= 2000) {
-      discountPercent = 15;
-  } else if (cartTotal >= 1500) {
-      discountPercent = 10;
+  if (isDiscountUnlocked) {
+      if (cartTotal >= 2000) {
+          discountPercent = 15;
+      } else if (cartTotal >= 1500) {
+          discountPercent = 10;
+      }
   }
   const discountAmount = Math.round((cartTotal * discountPercent) / 100);
   const finalTotal = cartTotal - discountAmount;
@@ -240,6 +249,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
         discountPercent={discountPercent}
         discountAmount={discountAmount}
         finalTotal={finalTotal}
+        onDiscountUnlocked={() => setIsDiscountUnlocked(true)}
       />
       
       <Hero onExploreClick={scrollToMenu} />

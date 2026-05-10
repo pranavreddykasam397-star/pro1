@@ -11,7 +11,8 @@ export default function CartSidebar({
     cartTotal,
     discountPercent = 0,
     discountAmount = 0,
-    finalTotal = 0
+    finalTotal = 0,
+    onDiscountUnlocked
 }) {
     const [gameStage, setGameStage] = React.useState('idle');
     const [prevTotal, setPrevTotal] = React.useState(0);
@@ -96,7 +97,9 @@ export default function CartSidebar({
                     <ClickerGame 
                         onWin={() => {
                             setGameStage('done');
-                            onPlaceOrder();
+                            if (onDiscountUnlocked) onDiscountUnlocked();
+                            // Slight delay to allow state to propagate and the user to see the total change before the modal pops up
+                            setTimeout(() => onPlaceOrder(), 100);
                         }} 
                         onLose={() => setGameStage('done')} 
                     />

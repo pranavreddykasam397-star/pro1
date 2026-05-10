@@ -45,12 +45,6 @@ export default function ClickerGame({ onWin, onLose }) {
         }
     };
 
-    const resetGame = () => {
-        setClicks(0);
-        setTimeLeft(15);
-        setGameState('idle');
-    };
-
     let statusText = "Click 50 times in 15 seconds!";
     let statusColor = "var(--ink)";
     let buttonColor = "var(--gold)";
@@ -103,15 +97,6 @@ export default function ClickerGame({ onWin, onLose }) {
             >
                 {gameState === 'idle' ? 'START CLICKING!' : gameState === 'playing' ? 'CLICK ME!' : gameState === 'won' ? 'WINNER!' : 'FAILED'}
             </button>
-            
-            {(gameState === 'won' || gameState === 'lost') && (
-                <button 
-                    onClick={resetGame}
-                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem', marginTop: '1rem', background: 'transparent', border: '1px solid var(--parchment)', color: 'var(--text-soft)', borderRadius: '4px', cursor: 'pointer' }}
-                >
-                    Try Again
-                </button>
-            )}
         </div>
     );
 }
