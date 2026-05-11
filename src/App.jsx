@@ -509,6 +509,7 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('adminToken'));
   const [password, setPassword] = useState('');
   const [newItem, setNewItem] = useState({ name: '', price: '', category: '', type: 'veg' });
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [qrUrl, setQrUrl] = useState(ownerQr);
   const [upiIdInput, setUpiIdInput] = useState(upiId || '');
   const [dateFilter, setDateFilter] = useState('');
@@ -591,6 +592,7 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
             throw new Error(err.error || 'Failed to add item');
         }
         setNewItem({ name: '', price: '', category: '', type: 'veg', imageUrl: '' });
+        setIsCustomCategory(false);
         onDataUpdated();
     } catch(e) { 
         console.error(e); 
@@ -806,7 +808,28 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '2rem' }}>
                     <input className="admin-input" placeholder="Item Name" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
                     <input className="admin-input" placeholder="Price (₹)" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} />
-                    <input className="admin-input" placeholder="Category (e.g. CURRIES)" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})} />
+                    <select 
+                        className="admin-input" 
+                        value={isCustomCategory ? 'new_custom' : newItem.category} 
+                        onChange={e => {
+                            if (e.target.value === 'new_custom') {
+                                setIsCustomCategory(true);
+                                setNewItem({...newItem, category: ''});
+                            } else {
+                                setIsCustomCategory(false);
+                                setNewItem({...newItem, category: e.target.value});
+                            }
+                        }}
+                    >
+                        <option value="" disabled>Select Category</option>
+                        {Array.from(new Set(['CURRIES', 'STARTERS', 'DRINKS', ...menu.map(item => item.category ? item.category.toUpperCase() : '')])).filter(Boolean).map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                        <option value="new_custom">+ Add New Category</option>
+                    </select>
+                    {isCustomCategory && (
+                        <input className="admin-input" placeholder="Enter New Category" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value.toUpperCase()})} />
+                    )}
                     <input className="admin-input" placeholder="Image URL" value={newItem.imageUrl} onChange={e => setNewItem({...newItem, imageUrl: e.target.value})} />
                     <select className="admin-input" value={newItem.type} onChange={e => setNewItem({...newItem, type: e.target.value})}>
                         <option value="veg">Vegetarian</option>
