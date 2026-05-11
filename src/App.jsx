@@ -822,7 +822,7 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
                         }}
                     >
                         <option value="" disabled>Select Category</option>
-                        {Array.from(new Set(['CURRIES', 'STARTERS', 'DRINKS', ...menu.map(item => item.category ? item.category.toUpperCase() : '')])).filter(Boolean).map(cat => (
+                        {Array.from(new Set(['CURRIES', 'BREADS', 'BIRYANI', 'FRIED RICE', 'STARTERS', 'DESSERTS', 'DRINKS', ...menu.map(item => item.category ? item.category.toUpperCase() : '')])).filter(Boolean).map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
                         <option value="new_custom">+ Add New Category</option>
