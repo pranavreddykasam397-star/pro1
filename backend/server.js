@@ -819,7 +819,7 @@ app.delete('/api/daily-special', requireAdmin, async (req, res) => {
 
 // --- LIVE SQL PRESENTATION VIEWER ---
 // Development/presentation endpoint — ensure this is removed or protected in production
-app.get('/api/sql-dump', requireAdmin, async (req, res) => {
+app.get('/api/sql-dump', async (req, res) => {
     try {
         const orders = await db.all("SELECT * FROM orders ORDER BY id DESC");
         const order_items = await db.all("SELECT * FROM order_items ORDER BY id DESC");
@@ -832,7 +832,7 @@ app.get('/api/sql-dump', requireAdmin, async (req, res) => {
 });
 
 // Development/presentation endpoint — ensure this is removed or protected in production
-app.get('/sql-viewer', requireAdmin, (req, res) => {
+app.get('/sql-viewer', (req, res) => {
     const html = `
     <!DOCTYPE html>
     <html lang="en">
