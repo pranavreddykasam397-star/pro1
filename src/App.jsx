@@ -1096,6 +1096,10 @@ export default function App() {
           const headers = token ? { 'x-admin-token': token } : {};
           
           const res = await fetch(endpoint, { headers });
+          if (res.status === 401 || res.status === 403) {
+              localStorage.removeItem('adminToken');
+              return loadData(); // Retry without the invalid token
+          }
           if (!res.ok) throw new Error('API request failed'); // [Fix 3.5] Propagate failure explicitly
           const data = await res.json();
           
