@@ -817,6 +817,41 @@ app.delete('/api/daily-special', requireAdmin, async (req, res) => {
     }
 });
 
+// Search images using TheMealDB (Free, no API key required!)
+app.get('/api/images/search', requireAdmin, async (req, res) => {
+    try {
+        const { query } = req.query;
+        if (!query) {
+            return res.status(400).json({ error: 'Search query is required' });
+        }
+        
+        // Using TheMealDB which is 100% free and requires no API key!
+        const url = `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(query)}`;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch from image provider');
+        }
+
+        const data = await response.json();
+        
+        let images = [];
+        if (data.meals) {
+            images = data.meals.slice(0, 6).map(meal => ({
+                id: meal.idMeal,
+                url: meal.strMealThumb,
+                thumb: meal.strMealThumb + '/preview',
+                credit: meal.strMeal,
+                creditUrl: meal.strSource || '#'
+            }));
+        }
+
+        res.json({ images });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- LIVE SQL PRESENTATION VIEWER ---
 // Development/presentation endpoint — ensure this is removed or protected in production
 app.get('/api/sql-dump', async (req, res) => {

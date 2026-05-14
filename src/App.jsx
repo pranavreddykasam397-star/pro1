@@ -5,6 +5,7 @@ import Hero from './components/Hero';
 import CategoryFilter from './components/CategoryFilter';
 import MenuCard from './components/MenuCard';
 import CartSidebar from './components/CartSidebar';
+import { searchPerfectImage } from './imageSearch';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -71,7 +72,10 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
       }
   }
   const discountAmount = Math.round((cartTotal * discountPercent) / 100);
-  const finalTotal = cartTotal - discountAmount;
+  const subtotalAfterDiscount = cartTotal - discountAmount;
+  const gstAmount = Math.round(subtotalAfterDiscount * 0.05); // 5% GST
+  const tipAmount = Math.round(subtotalAfterDiscount * 0.05); // 5% Service Tip
+  const finalTotal = subtotalAfterDiscount + gstAmount + tipAmount;
 
   // [Fix 3.4] Wrap derived array in useMemo to prevent render loops
   const availableCategories = useMemo(() => {
@@ -116,6 +120,8 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
         items: [...cart],
         subtotal: cartTotal,
         discount: discountAmount,
+        gst: gstAmount,
+        tip: tipAmount,
         total: finalTotal,
         method: paymentMethod,
         time: new Date().toLocaleTimeString(),
@@ -248,8 +254,9 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
         cartTotal={cartTotal}
         discountPercent={discountPercent}
         discountAmount={discountAmount}
+        gstAmount={gstAmount}
+        tipAmount={tipAmount}
         finalTotal={finalTotal}
-        onDiscountUnlocked={() => setIsDiscountUnlocked(true)}
       />
       
       <Hero onExploreClick={scrollToMenu} />
@@ -517,6 +524,11 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
   
+  const [isSearchingImage, setIsSearchingImage] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [targetImageField, setTargetImageField] = useState(''); // 'menu' or 'special'
+  
   const [lookupId, setLookupId] = useState('');
   const [lookupOrders, setLookupOrders] = useState(null);
   const [lookupPin, setLookupPin] = useState('');
@@ -528,6 +540,35 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
   );
 
   const [adminToken, setAdminToken] = useState(localStorage.getItem('adminToken') || null); // [Fix 1.3] JWT Token stored in state
+
+  const handleImageSearch = async (targetField) => {
+      const query = targetField === 'menu' ? newItem.name : specialForm.name;
+      if (!query || !query.trim()) {
+          return alert('Please enter an item name first to search for images.');
+      }
+      
+      setIsSearchingImage(true);
+      setTargetImageField(targetField);
+      
+      try {
+          const images = await searchPerfectImage(query, adminToken);
+          setSearchResults(images);
+          setShowImageModal(true);
+      } catch (e) {
+          alert(e.message || 'Failed to search images.');
+      } finally {
+          setIsSearchingImage(false);
+      }
+  };
+
+  const selectImage = (url) => {
+      if (targetImageField === 'menu') {
+          setNewItem({ ...newItem, imageUrl: url });
+      } else {
+          setSpecialForm({ ...specialForm, imageUrl: url });
+      }
+      setShowImageModal(false);
+  };
 
   const handleCustomerLookup = async () => {
       if (!lookupId) return;
@@ -830,7 +871,17 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
                     {isCustomCategory && (
                         <input className="admin-input" placeholder="Enter New Category" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value.toUpperCase()})} />
                     )}
-                    <input className="admin-input" placeholder="Image URL" value={newItem.imageUrl} onChange={e => setNewItem({...newItem, imageUrl: e.target.value})} />
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input className="admin-input" style={{ flex: 1, margin: 0 }} placeholder="Image URL" value={newItem.imageUrl} onChange={e => setNewItem({...newItem, imageUrl: e.target.value})} />
+                        <button 
+                            onClick={() => handleImageSearch('menu')} 
+                            className="admin-btn admin-btn--secondary"
+                            style={{ padding: '0 1rem', whiteSpace: 'nowrap', margin: 0 }}
+                            disabled={isSearchingImage && targetImageField === 'menu'}
+                        >
+                            {isSearchingImage && targetImageField === 'menu' ? '⏳ Searching...' : '🪄 Find Image'}
+                        </button>
+                    </div>
                     <select className="admin-input" value={newItem.type} onChange={e => setNewItem({...newItem, type: e.target.value})}>
                         <option value="veg">Vegetarian</option>
                         <option value="nonveg">Non-Vegetarian</option>
@@ -895,12 +946,23 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
                             </div>
                         )}
                         {!matchedMenuItem && (
-                            <input
-                                className="admin-input"
-                                placeholder="Image URL (required for items not in menu)"
-                                value={specialForm.imageUrl}
-                                onChange={e => setSpecialForm({...specialForm, imageUrl: e.target.value})}
-                            />
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <input
+                                    className="admin-input"
+                                    style={{ flex: 1, margin: 0 }}
+                                    placeholder="Image URL (required for items not in menu)"
+                                    value={specialForm.imageUrl}
+                                    onChange={e => setSpecialForm({...specialForm, imageUrl: e.target.value})}
+                                />
+                                <button 
+                                    onClick={() => handleImageSearch('special')} 
+                                    className="admin-btn admin-btn--secondary"
+                                    style={{ padding: '0 1rem', whiteSpace: 'nowrap', margin: 0 }}
+                                    disabled={isSearchingImage && targetImageField === 'special'}
+                                >
+                                    {isSearchingImage && targetImageField === 'special' ? '⏳ Searching...' : '🪄 Find Image'}
+                                </button>
+                            </div>
                         )}
                         <input
                             className="admin-input"
@@ -1071,6 +1133,34 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
                                 </div>
                             );
                         })}
+                </div>
+            </div>
+        )}
+
+        {showImageModal && (
+            <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(26,22,16,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 5000, backdropFilter: 'blur(4px)' }}>
+                <div style={{ background: 'var(--cream)', padding: '2rem', borderRadius: '4px', maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--parchment)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <h2 className="serif" style={{ margin: 0 }}>Select an Image</h2>
+                        <button onClick={() => setShowImageModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-soft)' }}>&times;</button>
+                    </div>
+                    <span className="gold-rule" style={{ margin: '0 auto 1.5rem', width: '100%' }}></span>
+                    
+                    {searchResults.length === 0 ? (
+                        <p style={{ textAlign: 'center', color: 'var(--text-soft)', padding: '2rem' }}>No perfect images found. Try a different name.</p>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                            {searchResults.map(img => (
+                                <div key={img.id} style={{ border: '1px solid var(--parchment)', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.2s' }} onClick={() => selectImage(img.url)} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.02)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}>
+                                    <img src={img.thumb} alt="Stock option" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block' }} />
+                                    <div style={{ padding: '0.5rem', background: 'var(--cream-deep)', fontSize: '0.75rem', color: 'var(--text-soft)', textAlign: 'center' }}>
+                                        Image: {img.credit}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-soft)', textAlign: 'center', marginTop: '1.5rem' }}>Images provided by TheMealDB (100% Free)</p>
                 </div>
             </div>
         )}

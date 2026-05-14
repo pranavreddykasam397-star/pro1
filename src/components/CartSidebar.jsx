@@ -1,6 +1,4 @@
 import React from 'react';
-import CartGame from './CartGame';
-import ClickerGame from './ClickerGame';
 
 export default function CartSidebar({ 
     isOpen, 
@@ -11,20 +9,11 @@ export default function CartSidebar({
     cartTotal,
     discountPercent = 0,
     discountAmount = 0,
-    finalTotal = 0,
-    onDiscountUnlocked
+    gstAmount = 0,
+    tipAmount = 0,
+    finalTotal = 0
 }) {
-    const [gameStage, setGameStage] = React.useState('idle');
-    const [prevTotal, setPrevTotal] = React.useState(0);
 
-    React.useEffect(() => {
-        if (cartTotal >= 1500 && prevTotal < 1500) {
-            setGameStage('prompt');
-        } else if (cartTotal < 1500) {
-            setGameStage('idle');
-        }
-        setPrevTotal(cartTotal);
-    }, [cartTotal, prevTotal]);
 
     let progress = 0;
     let message = "";
@@ -64,46 +53,7 @@ export default function CartSidebar({
                     </div>
                 </div>
 
-                {gameStage === 'prompt' && (
-                    <div style={{ padding: '1rem', background: 'var(--cream)', borderBottom: '1px solid var(--parchment)', textAlign: 'center' }}>
-                        <p style={{ marginBottom: '1rem', fontWeight: 'bold', color: 'var(--gold)' }}>Play a mini-game to unlock your discount!</p>
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button 
-                                className="admin-btn admin-btn--primary" 
-                                style={{ flex: 1, padding: '0.8rem' }} 
-                                onClick={() => setGameStage('game1')}
-                            >
-                                Play Game
-                            </button>
-                            <button 
-                                className="admin-btn admin-btn--secondary" 
-                                style={{ flex: 1, padding: '0.8rem' }} 
-                                onClick={() => setGameStage('done')}
-                            >
-                                Skip
-                            </button>
-                        </div>
-                    </div>
-                )}
 
-                {gameStage === 'game1' && (
-                    <CartGame 
-                        onWin={() => setGameStage('game2')} 
-                        onLose={() => setGameStage('done')} 
-                    />
-                )}
-
-                {gameStage === 'game2' && (
-                    <ClickerGame 
-                        onWin={() => {
-                            setGameStage('done');
-                            if (onDiscountUnlocked) onDiscountUnlocked();
-                            // Slight delay to allow state to propagate and the user to see the total change before the modal pops up
-                            setTimeout(() => onPlaceOrder(), 100);
-                        }} 
-                        onLose={() => setGameStage('done')} 
-                    />
-                )}
 
                 <div className="cart__items">
                     {cartItems.length === 0 ? (
@@ -150,6 +100,18 @@ export default function CartSidebar({
                             <span className="cart__total-label">Discount ({discountPercent}%)</span>
                             <span className="cart__total-amount">- ₹{discountAmount}</span>
                         </div>
+                    )}
+                    {cartTotal > 0 && (
+                        <>
+                            <div className="cart__total-row" style={{ color: 'var(--text-soft)', fontSize: '0.9rem' }}>
+                                <span className="cart__total-label">GST (5%)</span>
+                                <span className="cart__total-amount">+ ₹{gstAmount}</span>
+                            </div>
+                            <div className="cart__total-row" style={{ color: 'var(--text-soft)', fontSize: '0.9rem' }}>
+                                <span className="cart__total-label">Service Charge (5%)</span>
+                                <span className="cart__total-amount">+ ₹{tipAmount}</span>
+                            </div>
+                        </>
                     )}
                     <div className="cart__total-row" style={{ borderTop: '1px solid var(--parchment)', paddingTop: '0.5rem', marginTop: '0.5rem' }}>
                         <span className="cart__total-label" style={{ fontWeight: 'bold' }}>Final Total</span>
