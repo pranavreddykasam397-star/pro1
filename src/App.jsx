@@ -6,6 +6,7 @@ import CategoryFilter from './components/CategoryFilter';
 import MenuCard from './components/MenuCard';
 import CartSidebar from './components/CartSidebar';
 import { searchPerfectImage } from './imageSearch';
+import './styles/games.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -257,6 +258,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
         gstAmount={gstAmount}
         tipAmount={tipAmount}
         finalTotal={finalTotal}
+        onDiscountUnlocked={() => setIsDiscountUnlocked(true)}
       />
       
       <Hero onExploreClick={scrollToMenu} />

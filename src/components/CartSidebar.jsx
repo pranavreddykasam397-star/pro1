@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { DiscountGamesUI } from '../js_games/DiscountGamesUI';
 
 export default function CartSidebar({ 
     isOpen, 
@@ -11,8 +12,30 @@ export default function CartSidebar({
     discountAmount = 0,
     gstAmount = 0,
     tipAmount = 0,
-    finalTotal = 0
+    finalTotal = 0,
+    onDiscountUnlocked
 }) {
+    const gameContainerRef = useRef(null);
+    const gameInstanceRef = useRef(null);
+
+    // Initialize Vanilla JS Game
+    useEffect(() => {
+        if (cartTotal >= 1500 && discountPercent === 0) {
+            if (gameContainerRef.current && !gameInstanceRef.current) {
+                gameInstanceRef.current = new DiscountGamesUI(gameContainerRef.current, () => {
+                    if (onDiscountUnlocked) onDiscountUnlocked();
+                });
+            }
+        } else {
+            // Cleanup if conditions not met
+            if (gameInstanceRef.current) {
+                gameInstanceRef.current = null;
+                if (gameContainerRef.current) {
+                    gameContainerRef.current.innerHTML = '';
+                }
+            }
+        }
+    }, [cartTotal, discountPercent, onDiscountUnlocked]);
 
 
     let progress = 0;
@@ -53,7 +76,7 @@ export default function CartSidebar({
                     </div>
                 </div>
 
-
+                <div ref={gameContainerRef} style={{ padding: '0 1rem' }}></div>
 
                 <div className="cart__items">
                     {cartItems.length === 0 ? (
