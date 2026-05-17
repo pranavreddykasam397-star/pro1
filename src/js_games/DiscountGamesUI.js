@@ -15,7 +15,7 @@ export class DiscountGamesUI {
         // Clicker Game State
         this.clicks = 0;
         this.maxClicks = 50;
-        this.timeLeft = 15;
+        this.timeLeft = 10;
         this.timer = null;
         this.clickerActive = false;
         
@@ -176,20 +176,7 @@ export class DiscountGamesUI {
                 <div class="icon">💔</div>
                 <h3>Game Over</h3>
                 <p>Better luck next time!</p>
-                <button class="retry-btn">Try Again</button>
             </div>
         `;
-        
-        card.querySelector('.retry-btn').addEventListener('click', () => {
-            // Reset state
-            this.phase = 'switch';
-            this.mistakes = 0;
-            this.realSwitchIndex = Math.floor(Math.random() * 4);
-            this.switchesState = [false, false, false, false];
-            this.clicks = 0;
-            this.timeLeft = 15;
-            this.clickerActive = false;
-            this.render();
-        });
     }
 }
