@@ -11,7 +11,6 @@ export default function CartSidebar({
     discountPercent = 0,
     discountAmount = 0,
     gstAmount = 0,
-    tipAmount = 0,
     finalTotal = 0,
     onDiscountUnlocked
 }) {
@@ -67,18 +66,19 @@ export default function CartSidebar({
                     <button className="cart__close" onClick={onClose}>&times;</button>
                 </div>
 
-                <div style={{ padding: '1rem', background: 'var(--cream-deep)', borderBottom: '1px solid var(--parchment)' }}>
-                    <p style={{ fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 'bold', color: discountPercent > 0 ? '#27ae60' : 'var(--ink)' }}>
-                        {message}
-                    </p>
-                    <div style={{ width: '100%', height: '8px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ width: `${Math.min(progress, 100)}%`, height: '100%', background: discountPercent === 15 ? '#27ae60' : 'var(--gold)', transition: 'width 0.3s ease' }}></div>
+                <div className="cart__body" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ padding: '1rem', background: 'var(--cream-deep)', borderBottom: '1px solid var(--parchment)', flexShrink: 0 }}>
+                        <p style={{ fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 'bold', color: discountPercent > 0 ? '#27ae60' : 'var(--ink)' }}>
+                            {message}
+                        </p>
+                        <div style={{ width: '100%', height: '8px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.min(progress, 100)}%`, height: '100%', background: discountPercent === 15 ? '#27ae60' : 'var(--gold)', transition: 'width 0.3s ease' }}></div>
+                        </div>
                     </div>
-                </div>
 
-                <div ref={gameContainerRef} style={{ padding: '0 1rem' }}></div>
+                    <div ref={gameContainerRef} style={{ padding: '0 1rem', flexShrink: 0 }}></div>
 
-                <div className="cart__items">
+                    <div className="cart__items" style={{ flex: 1, overflowY: 'visible', padding: '1.2rem 1.4rem' }}>
                     {cartItems.length === 0 ? (
                         <p className="text-center text-muted" style={{ marginTop: '3rem' }}>
                             Your cart is currently empty.
@@ -111,6 +111,7 @@ export default function CartSidebar({
                             </div>
                         ))
                     )}
+                    </div>
                 </div>
 
                 <div className="cart__footer">
@@ -129,10 +130,6 @@ export default function CartSidebar({
                             <div className="cart__total-row" style={{ color: 'var(--text-soft)', fontSize: '0.9rem' }}>
                                 <span className="cart__total-label">GST (5%)</span>
                                 <span className="cart__total-amount">+ ₹{gstAmount}</span>
-                            </div>
-                            <div className="cart__total-row" style={{ color: 'var(--text-soft)', fontSize: '0.9rem' }}>
-                                <span className="cart__total-label">Service Charge (5%)</span>
-                                <span className="cart__total-amount">+ ₹{tipAmount}</span>
                             </div>
                         </>
                     )}

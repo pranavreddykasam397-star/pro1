@@ -75,8 +75,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
   const discountAmount = Math.round((cartTotal * discountPercent) / 100);
   const subtotalAfterDiscount = cartTotal - discountAmount;
   const gstAmount = Math.round(subtotalAfterDiscount * 0.05); // 5% GST
-  const tipAmount = Math.round(subtotalAfterDiscount * 0.05); // 5% Service Tip
-  const finalTotal = subtotalAfterDiscount + gstAmount + tipAmount;
+  const finalTotal = subtotalAfterDiscount + gstAmount;
 
   // [Fix 3.4] Wrap derived array in useMemo to prevent render loops
   const availableCategories = useMemo(() => {
@@ -122,7 +121,6 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
         subtotal: cartTotal,
         discount: discountAmount,
         gst: gstAmount,
-        tip: tipAmount,
         total: finalTotal,
         method: paymentMethod,
         time: new Date().toLocaleTimeString(),
@@ -256,7 +254,6 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
         discountPercent={discountPercent}
         discountAmount={discountAmount}
         gstAmount={gstAmount}
-        tipAmount={tipAmount}
         finalTotal={finalTotal}
         onDiscountUnlocked={() => setIsDiscountUnlocked(true)}
       />
