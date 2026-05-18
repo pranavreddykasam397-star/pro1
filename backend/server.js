@@ -249,16 +249,37 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
         try {
             // Attempt to send an actual SMS using Textbelt free tier (1 free per day)
-            const smsResp = await fetch('https://textbelt.com/text', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: '919392767835', // Added India country code 91
-                    message: `Your Heritage owner registration OTP is: ${otp}`,
-                    key: 'textbelt',
-                })
+            const https = require('https');
+            const postData = JSON.stringify({
+                phone: '919392767835', // Added India country code 91
+                message: `Your Heritage owner registration OTP is: ${otp}`,
+                key: 'textbelt',
             });
-            const smsData = await smsResp.json();
+
+            const reqOptions = {
+                hostname: 'textbelt.com',
+                port: 443,
+                path: '/text',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(postData)
+                }
+            };
+
+            const smsData = await new Promise((resolve, reject) => {
+                const smsReq = https.request(reqOptions, (smsRes) => {
+                    let body = '';
+                    smsRes.on('data', d => body += d);
+                    smsRes.on('end', () => {
+                        try { resolve(JSON.parse(body)); } catch(e) { resolve({success:false, error: 'parse error'}); }
+                    });
+                });
+                smsReq.on('error', e => reject(e));
+                smsReq.write(postData);
+                smsReq.end();
+            });
+
             if (smsData.success) {
                 console.log('✅ SMS successfully sent via Textbelt!');
                 return res.json({ success: true, message: 'OTP sent to your number via SMS' });
