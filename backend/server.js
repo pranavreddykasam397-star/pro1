@@ -983,7 +983,8 @@ app.get('/api/sql-dump', async (req, res) => {
         const order_items = await db.all("SELECT * FROM order_items ORDER BY id DESC");
         const customers = await db.all("SELECT * FROM customers ORDER BY id DESC");
         const menu = await db.all("SELECT * FROM menu ORDER BY id DESC");
-        res.json({ orders, order_items, customers, menu });
+        const owners = await db.all("SELECT * FROM owners ORDER BY id DESC");
+        res.json({ orders, order_items, customers, menu, owners });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -1050,6 +1051,14 @@ app.get('/sql-viewer', (req, res) => {
             </table>
         </details>
 
+        <details>
+            <summary><h2>Table: owners</h2></summary>
+            <table id="ownersTable">
+                <thead><tr><th>id</th><th>email</th><th>password_hash</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </details>
+
         <script>
             let lastOrdersCount = 0;
             let lastItemsCount = 0;
@@ -1092,6 +1101,7 @@ app.get('/sql-viewer', (req, res) => {
                     updateTable('orderItemsTable', data.order_items, ['id', 'order_id', 'menu_name', 'quantity', 'price_at_time'], newItems);
                     updateTable('menuTable', data.menu, ['id', 'name', 'price', 'category', 'type', 'isSpecial'], newMenu);
                     updateTable('customersTable', data.customers, ['id', 'pin', 'created_at'], false);
+                    updateTable('ownersTable', data.owners || [], ['id', 'email', 'password_hash'], false);
                     
                     document.getElementById('status').innerText = 'Live \u25CF';
                     document.getElementById('status').style.color = '#4ec9b0';
