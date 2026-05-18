@@ -126,6 +126,12 @@ async function setupDb() {
             pin TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS owners (
+            id INTEGER PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL
+        );
     `);
 
     // Ensure config exists
@@ -161,6 +167,16 @@ async function runMigrations() {
         await db.run("ALTER TABLE orders ADD COLUMN phone VARCHAR(20)");
     } catch (e) {
         if (!e.message.includes('duplicate column')) console.error('Migration error (orders.phone):', e);
+    }
+
+    try {
+        const defaultOwner = await db.get("SELECT * FROM owners WHERE email = 'admin@example.com'");
+        if (!defaultOwner) {
+            const defaultHash = process.env.OWNER_HASH || "$2b$10$0DAV3UE6KM9GGdOd0ricMunbm2hmST3w6JcPHJGCUN8DLYXwpG7Tm";
+            await db.run("INSERT INTO owners (email, password_hash) VALUES (?, ?)", ['admin@example.com', defaultHash]);
+        }
+    } catch (e) {
+        console.error('Migration error (seed owners):', e);
     }
 }
 
@@ -216,16 +232,102 @@ function parseInteger(value) {
 
 // [Fix 1.3] New auth route
 
+const otpStore = {}; // Temporary store for OTPs
+
+app.post('/api/auth/send-otp', async (req, res) => {
+    try {
+        const otp = Math.floor(1000 + Math.random() * 9000).toString();
+        const superAdminNumber = '9392767835';
+        
+        otpStore[superAdminNumber] = otp;
+        
+        console.log(`\n======================================================`);
+        console.log(`🔔 SMS INITIATED`);
+        console.log(`To: ${superAdminNumber}`);
+        console.log(`Message: Your owner registration OTP is ${otp}`);
+        console.log(`======================================================\n`);
+
+        try {
+            // Attempt to send an actual SMS using Textbelt free tier (1 free per day)
+            const smsResp = await fetch('https://textbelt.com/text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: '919392767835', // Added India country code 91
+                    message: `Your Heritage owner registration OTP is: ${otp}`,
+                    key: 'textbelt',
+                })
+            });
+            const smsData = await smsResp.json();
+            if (smsData.success) {
+                console.log('✅ SMS successfully sent via Textbelt!');
+                return res.json({ success: true, message: 'OTP sent to your number via SMS' });
+            } else {
+                console.log('⚠️ Textbelt SMS failed (Quota exceeded?):', smsData.error);
+                return res.json({ success: true, message: 'OTP logged to server console (SMS quota exceeded)' });
+            }
+        } catch (smsError) {
+            console.error('Failed to connect to SMS API:', smsError.message);
+            return res.json({ success: true, message: 'OTP logged to server console (SMS service error)' });
+        }
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Secret endpoint for Super Admin to bypass/retrieve OTP during testing
+app.get('/api/auth/dev-otp', (req, res) => {
+    const otp = otpStore['9392767835'];
+    res.json({ otp: otp || null });
+});
+
+app.post('/api/auth/owner-signup', async (req, res) => {
+    try {
+        const { email, password, otp } = req.body;
+        
+        if (!email || !password || !otp) {
+            return res.status(400).json({ error: 'Email, password, and OTP are required' });
+        }
+
+        const superAdminNumber = '9392767835';
+        if (otpStore[superAdminNumber] !== otp) {
+            return res.status(401).json({ error: 'Invalid or expired OTP' });
+        }
+        
+        // Clear OTP after successful verification
+        delete otpStore[superAdminNumber];
+
+        const existingOwner = await db.get("SELECT * FROM owners WHERE email = ?", [email.toLowerCase().trim()]);
+        if (existingOwner) {
+            return res.status(400).json({ error: 'An owner with this email already exists' });
+        }
+
+        const password_hash = await bcrypt.hash(password, 10);
+        await db.run("INSERT INTO owners (email, password_hash) VALUES (?, ?)", [email.toLowerCase().trim(), password_hash]);
+
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/api/auth/login', async (req, res) => {
     try {
-        const { password } = req.body;
-        // Hardcoded bcrypt hash of 'owner123'. 
-        const storedHash = process.env.OWNER_HASH || "$2b$10$0DAV3UE6KM9GGdOd0ricMunbm2hmST3w6JcPHJGCUN8DLYXwpG7Tm";
-        const isMatch = await bcrypt.compare(password, storedHash);
+        const { email, password } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
 
-        if (!isMatch) return res.status(401).json({ error: 'Invalid password' });
+        const owner = await db.get("SELECT * FROM owners WHERE email = ?", [email.toLowerCase().trim()]);
+        if (!owner) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
 
-        const token = jwt.sign({ role: 'admin' }, ADMIN_TOKEN, { expiresIn: '1d' });
+        const isMatch = await bcrypt.compare(password, owner.password_hash);
+        if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
+
+        const token = jwt.sign({ role: 'admin', email: owner.email }, ADMIN_TOKEN, { expiresIn: '1d' });
         res.json({ token });
     } catch (e) {
         res.status(500).json({ error: e.message });
