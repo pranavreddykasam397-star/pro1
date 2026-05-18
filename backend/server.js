@@ -984,7 +984,9 @@ app.get('/api/sql-dump', async (req, res) => {
         const customers = await db.all("SELECT * FROM customers ORDER BY id DESC");
         const menu = await db.all("SELECT * FROM menu ORDER BY id DESC");
         const owners = await db.all("SELECT * FROM owners ORDER BY id DESC");
-        res.json({ orders, order_items, customers, menu, owners });
+        const settings = await db.all("SELECT * FROM settings");
+        const daily_summaries = await db.all("SELECT * FROM daily_summaries ORDER BY id DESC");
+        res.json({ orders, order_items, customers, menu, owners, settings, daily_summaries });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -1059,6 +1061,22 @@ app.get('/sql-viewer', (req, res) => {
             </table>
         </details>
 
+        <details>
+            <summary><h2>Table: settings</h2></summary>
+            <table id="settingsTable">
+                <thead><tr><th>key</th><th>value</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </details>
+
+        <details>
+            <summary><h2>Table: daily_summaries (Recent)</h2></summary>
+            <table id="dailySummariesTable">
+                <thead><tr><th>id</th><th>date</th><th>total_revenue</th><th>order_count</th><th>orders_json</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </details>
+
         <script>
             let lastOrdersCount = 0;
             let lastItemsCount = 0;
@@ -1102,6 +1120,8 @@ app.get('/sql-viewer', (req, res) => {
                     updateTable('menuTable', data.menu, ['id', 'name', 'price', 'category', 'type', 'isSpecial'], newMenu);
                     updateTable('customersTable', data.customers, ['id', 'pin', 'created_at'], false);
                     updateTable('ownersTable', data.owners || [], ['id', 'email', 'password_hash'], false);
+                    updateTable('settingsTable', data.settings || [], ['key', 'value'], false);
+                    updateTable('dailySummariesTable', data.daily_summaries || [], ['id', 'date', 'total_revenue', 'order_count', 'orders_json'], false);
                     
                     document.getElementById('status').innerText = 'Live \u25CF';
                     document.getElementById('status').style.color = '#4ec9b0';
