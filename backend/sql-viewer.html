@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Database Viewer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', 'Consolas', monospace; padding: 24px; }
+
+        /* Header */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid #21262d; padding-bottom: 16px; }
+        .header h1 { font-size: 1.4rem; color: #58a6ff; font-weight: 600; }
+        .header h1 span.db-icon { margin-right: 8px; }
+        .status { font-size: 0.85rem; padding: 4px 12px; border-radius: 20px; font-weight: 500; }
+        .status.live { background: #0d1a12; color: #3fb950; border: 1px solid #238636; }
+        .status.syncing { background: #1a1500; color: #d29922; border: 1px solid #9e6a03; }
+        .status.error { background: #1a0d0d; color: #f85149; border: 1px solid #da3633; }
+
+        /* Table sections */
+        details { margin-bottom: 16px; background: #161b22; border: 1px solid #21262d; border-radius: 8px; overflow: hidden; }
+        summary { padding: 12px 16px; cursor: pointer; background: #161b22; list-style: none; display: flex; align-items: center; user-select: none; transition: background 0.15s; }
+        summary:hover { background: #1c2128; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; margin-right: 10px; color: #484f58; font-size: 0.7rem; transition: transform 0.2s; }
+        details[open] summary::before { transform: rotate(90deg); }
+        summary .table-name { font-size: 1rem; color: #58a6ff; font-weight: 600; }
+        .row-badge { margin-left: 10px; background: #21262d; color: #8b949e; font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+
+        /* Tables */
+        .table-wrapper { overflow-x: auto; max-height: 500px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { background: #0d1117; color: #8b949e; font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px; padding: 8px 14px; text-align: left; border-bottom: 1px solid #21262d; position: sticky; top: 0; z-index: 1; }
+        td { padding: 8px 14px; border-bottom: 1px solid #21262d; color: #c9d1d9; vertical-align: top; }
+        tr:hover td { background: #1c2128; }
+        td.cell-null { color: #484f58; font-style: italic; }
+        td.cell-number { color: #79c0ff; font-variant-numeric: tabular-nums; }
+        td.cell-string { color: #a5d6ff; }
+        td.cell-hash { color: #484f58; font-size: 0.75rem; }
+
+        /* JSON cells */
+        .json-preview { display: flex; align-items: center; gap: 8px; }
+        .json-preview .preview-text { color: #484f58; font-size: 0.8rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .json-btn { background: #21262d; color: #58a6ff; border: 1px solid #30363d; padding: 3px 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+        .json-btn:hover { background: #30363d; }
+
+        /* URL cells */
+        .url-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #484f58; font-size: 0.8rem; }
+
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .modal-overlay.active { display: flex; }
+        .modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; max-width: 700px; width: 90%; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 16px 64px rgba(0,0,0,0.5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #21262d; }
+        .modal-header h3 { color: #58a6ff; font-size: 0.95rem; }
+        .modal-close { background: none; border: none; color: #8b949e; font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+        .modal-close:hover { background: #21262d; color: #f85149; }
+        .modal-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+        .modal-body pre { white-space: pre-wrap; word-break: break-word; font-size: 0.8rem; line-height: 1.6; color: #c9d1d9; font-family: 'Consolas', monospace; }
+        .modal-body .json-key { color: #79c0ff; }
+        .modal-body .json-string { color: #a5d6ff; }
+        .modal-body .json-number { color: #56d364; }
+        .modal-body .json-null { color: #484f58; font-style: italic; }
+
+        /* Empty state */
+        .empty-row td { text-align: center; color: #484f58; padding: 20px; font-style: italic; }
+
+        /* Flash animation */
+        @keyframes flash-new { from { background-color: #0c2d6b; } to { background-color: transparent; } }
+        .flash td { animation: flash-new 1.5s ease; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><span class="db-icon">🗄️</span>Live SQLite Database</h1>
+        <span class="status syncing" id="status">⏳ Connecting...</span>
+    </div>
+    
+    <details open>
+        <summary><span class="table-name">customers</span><span class="row-badge" id="count-customers">0 rows</span></summary>
+        <div class="table-wrapper">
+        <table id="customersTable">
+            <thead><tr><th>id</th><th>pin</th><th>created_at</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        </div>
+    </details>
+
+    <details open>
+        <summary><span class="table-name">daily_summaries</span><span class="row-badge" id="count-daily_summaries">0 rows</span></summary>
+        <div class="table-wrapper">
+        <table id="dailySummariesTable">
+            <thead><tr><th>id</th><th>date</th><th>total_revenue</th><th>order_count</th><th>orders_json</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        </div>
+    </details>
+
+    <details open>
+        <summary><span class="table-name">menu</span><span class="row-badge" id="count-menu">0 rows</span></summary>
+        <div class="table-wrapper">
+        <table id="menuTable">
+            <thead><tr><th>id</th><th>name</th><th>price</th><th>category</th><th>type</th><th>imageUrl</th><th>isSpecial</th><th>timeHash</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        </div>
+    </details>
+
+    <details open>
+        <summary><span class="table-name">order_items</span><span class="row-badge" id="count-order_items">0 rows</span></summary>
+        <div class="table-wrapper">
+        <table id="orderItemsTable">
+            <thead><tr><th>id</th><th>order_id</th><th>menu_name</th><th>quantity</th><th>price_at_time</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        </div>
+    </details>
+
+    <details open>
+        <summary><span class="table-name">orders</span><span class="row-badge" id="count-orders">0 rows</span></summary>
+        <div class="table-wrapper">
+        <table id="ordersTable">
+            <thead><tr><th>id</th><th>total</th><th>method</th><th>time</th><th>timeHash</th><th>customer_id</th><th>phone</th><th>payment_status</th><th>payment_screenshot</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        </div>
+    </details>
+
+    <details open>
+        <summary><span class="table-name">owners</span><span class="row-badge" id="count-owners">0 rows</span></summary>
+        <div class="table-wrapper">
+        <table id="ownersTable">
+            <thead><tr><th>id</th><th>email</th><th>password_hash</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        </div>
+    </details>
+
+    <details open>
+        <summary><span class="table-name">settings</span><span class="row-badge" id="count-settings">0 rows</span></summary>
+        <div class="table-wrapper">
+        <table id="settingsTable">
+            <thead><tr><th>key</th><th>value</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        </div>
+    </details>
+
+    <!-- JSON Modal -->
+    <div class="modal-overlay" id="jsonModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">JSON Data</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <pre id="modalContent"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const lastCounts = {};
+        // Columns that contain JSON data
+        const jsonColumns = ['orders_json', 'value', 'payment_screenshot'];
+        // Columns that contain URLs
+        const urlColumns = ['imageUrl'];
+        // Columns that contain long hashes
+        const hashColumns = ['password_hash', 'pin', 'timeHash'];
+        // Numeric columns
+        const numberColumns = ['id', 'total', 'price', 'price_at_time', 'quantity', 'order_id', 'customer_id', 'total_revenue', 'order_count', 'isSpecial'];
+
+        let jsonStore = {};
+        let jsonIdCounter = 0;
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function syntaxHighlightJson(json) {
+            const str = JSON.stringify(json, null, 2);
+            return str.replace(/"([^"]+)":/g, '"<span class="json-key">$1</span>":')
+                      .replace(/: "(.*?)"/g, ': "<span class="json-string">$1</span>"')
+                      .replace(/: (\d+)/g, ': <span class="json-number">$1</span>')
+                      .replace(/: null/g, ': <span class="json-null">null</span>');
+        }
+
+        function showJson(id, title) {
+            const data = jsonStore[id];
+            if (!data) return;
+            document.getElementById('modalTitle').textContent = title;
+            let parsed;
+            try { parsed = JSON.parse(data); } catch { parsed = data; }
+            if (typeof parsed === 'object') {
+                document.getElementById('modalContent').innerHTML = syntaxHighlightJson(parsed);
+            } else {
+                document.getElementById('modalContent').textContent = data;
+            }
+            document.getElementById('jsonModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('jsonModal').classList.remove('active');
+        }
+
+        document.getElementById('jsonModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeModal();
+        });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+        function formatCell(col, val) {
+            if (val === null || val === undefined) {
+                return '<td class="cell-null">NULL</td>';
+            }
+
+            const strVal = String(val);
+
+            // JSON columns — show a preview + "View" button
+            if (jsonColumns.includes(col) && strVal.length > 40) {
+                const id = 'json_' + (jsonIdCounter++);
+                jsonStore[id] = strVal;
+                let summary = '';
+                try {
+                    const parsed = JSON.parse(strVal);
+                    if (parsed.total !== undefined && parsed.count !== undefined) {
+                        summary = '₹' + parsed.total + ' · ' + parsed.count + ' orders';
+                    } else if (parsed.ownerQr !== undefined) {
+                        summary = 'UPI: ' + (parsed.upiId || '—');
+                    } else {
+                        summary = strVal.substring(0, 30) + '…';
+                    }
+                } catch {
+                    summary = strVal.substring(0, 30) + '…';
+                }
+                return '<td><div class="json-preview"><span class="preview-text">' + escapeHtml(summary) + '</span><button class="json-btn" onclick="showJson(\'' + id + '\', \'' + escapeHtml(col) + '\')">View JSON</button></div></td>';
+            }
+
+            // URL columns
+            if (urlColumns.includes(col) && strVal.startsWith('http')) {
+                return '<td><span class="url-cell" title="' + escapeHtml(strVal) + '">' + escapeHtml(strVal) + '</span></td>';
+            }
+
+            // Hash columns — truncate
+            if (hashColumns.includes(col) && strVal.length > 20) {
+                return '<td class="cell-hash" title="' + escapeHtml(strVal) + '">' + escapeHtml(strVal.substring(0, 16)) + '…</td>';
+            }
+
+            // Screenshot (base64) — show indicator
+            if (col === 'payment_screenshot' && strVal.startsWith('data:image')) {
+                return '<td><button class="json-btn" onclick="window.open().document.write(\'<img src=\\\''+escapeHtml(strVal)+'\\\' style=\\\'max-width:100%\\\'>\')">📷 View</button></td>';
+            }
+
+            // Number columns
+            if (numberColumns.includes(col) && !isNaN(val)) {
+                return '<td class="cell-number">' + val + '</td>';
+            }
+
+            // Default
+            let display = strVal;
+            if (display.length > 60) display = display.substring(0, 57) + '…';
+            return '<td class="cell-string" title="' + escapeHtml(strVal) + '">' + escapeHtml(display) + '</td>';
+        }
+
+        function updateTable(tableId, data, columns, countId) {
+            const tbody = document.querySelector('#' + tableId + ' tbody');
+            const countEl = document.getElementById(countId);
+            const prevCount = lastCounts[tableId] || 0;
+            const isNew = data.length > prevCount;
+            lastCounts[tableId] = data.length;
+
+            if (countEl) countEl.textContent = data.length + (data.length === 1 ? ' row' : ' rows');
+
+            let html = '';
+            if (data.length === 0) {
+                html = '<tr class="empty-row"><td colspan="' + columns.length + '">No records</td></tr>';
+            } else {
+                data.forEach((row, index) => {
+                    const flashClass = (isNew && index === 0) ? ' class="flash"' : '';
+                    html += '<tr' + flashClass + '>';
+                    columns.forEach(col => {
+                        html += formatCell(col, row[col]);
+                    });
+                    html += '</tr>';
+                });
+            }
+            tbody.innerHTML = html;
+        }
+
+        async function fetchData() {
+            try {
+                const statusEl = document.getElementById('status');
+                statusEl.textContent = '⏳ Syncing...';
+                statusEl.className = 'status syncing';
+
+                const res = await fetch('/api/sql-dump');
+                const data = await res.json();
+
+                // Reset json store each cycle
+                jsonStore = {};
+                jsonIdCounter = 0;
+
+                updateTable('customersTable', data.customers || [], ['id', 'pin', 'created_at'], 'count-customers');
+                updateTable('dailySummariesTable', data.daily_summaries || [], ['id', 'date', 'total_revenue', 'order_count', 'orders_json'], 'count-daily_summaries');
+                updateTable('menuTable', data.menu || [], ['id', 'name', 'price', 'category', 'type', 'imageUrl', 'isSpecial', 'timeHash'], 'count-menu');
+                updateTable('orderItemsTable', data.order_items || [], ['id', 'order_id', 'menu_name', 'quantity', 'price_at_time'], 'count-order_items');
+                updateTable('ordersTable', data.orders || [], ['id', 'total', 'method', 'time', 'timeHash', 'customer_id', 'phone', 'payment_status', 'payment_screenshot'], 'count-orders');
+                updateTable('ownersTable', data.owners || [], ['id', 'email', 'password_hash'], 'count-owners');
+                updateTable('settingsTable', data.settings || [], ['key', 'value'], 'count-settings');
+                
+                statusEl.textContent = '● Live';
+                statusEl.className = 'status live';
+            } catch(e) {
+                const statusEl = document.getElementById('status');
+                statusEl.textContent = '✕ Connection Error';
+                statusEl.className = 'status error';
+            }
+        }
+
+        fetchData();
+        setInterval(fetchData, 2000);
+    </script>
+</body>
+</html>
