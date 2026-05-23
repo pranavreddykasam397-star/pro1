@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'; // [Fix 3.4] Add useMemo
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import CategoryFilter from './components/CategoryFilter';
@@ -1284,6 +1284,32 @@ function AdminView({ menu, orders, dailySummaries, ownerQr, upiId, onDataUpdated
   );
 }
 
+function NotFoundPage() {
+  const navigate = useNavigate();
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
+  return (
+    <div className="not-found-page">
+      <div className={`not-found-content ${isVisible ? 'visible' : ''}`}>
+        <span className="not-found-ornament">⚜</span>
+        <h1 className="not-found-code serif">404</h1>
+        <span className="gold-rule" style={{ margin: '0 auto 1.5rem', width: '60px' }}></span>
+        <h2 className="not-found-title serif">Page Not Found</h2>
+        <p className="not-found-message">
+          The page you are looking for doesn't exist or has been moved.
+        </p>
+        <button className="not-found-btn" onClick={() => navigate('/')}>
+          <span>Return Home</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [menu, setMenu] = useState([]);
   const [cart, setCart] = useState([]);
@@ -1339,6 +1365,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<CustomerView menu={menu} cart={cart} setCart={setCart} ownerQr={ownerQr} upiId={upiId} onOrderComplete={loadData} dailySpecial={dailySpecial} />} />
         <Route path="/admin" element={<AdminView menu={menu} orders={orders} dailySummaries={dailySummaries} ownerQr={ownerQr} upiId={upiId} onDataUpdated={loadData} dailySpecial={dailySpecial} />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );
