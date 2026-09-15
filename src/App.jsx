@@ -121,7 +121,7 @@ function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, da
         subtotal: cartTotal,
         discount: discountAmount,
         gst: gstAmount,
-        total: finalTotal,
+        total: finalTotal, 
         method: paymentMethod,
         time: new Date().toLocaleTimeString(),
         timeHash: Date.now(),
