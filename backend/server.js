@@ -10,24 +10,31 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const app = express();
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'super_secret_admin_token_123';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://heritage-niat.vercel.app';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://pro1-chi-sable.vercel.app';
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
+    'https://pro1-chi-sable.vercel.app',
+    'https://heritage-niat.vercel.app',
     FRONTEND_URL
-];
+].filter(Boolean);
+
+// Deduplicate origins
+const uniqueOrigins = [...new Set(allowedOrigins)];
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (!origin || uniqueOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            console.warn(`CORS blocked origin: ${origin}`);
+            callback(null, false); // Reject gracefully without throwing (avoids 500)
         }
     },
     methods: ['GET', 'POST', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'x-admin-token']
+    allowedHeaders: ['Content-Type', 'x-admin-token'],
+    credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 
@@ -180,7 +187,7 @@ async function runMigrations() {
     }
 }
 
-// Default menu items — kept in sync with frontend menuList.js
+// Default menu items ΓÇö kept in sync with frontend menuList.js
 const fs = require('fs');
 let initialMenu = [];
 try {
@@ -242,7 +249,7 @@ app.post('/api/auth/send-otp', async (req, res) => {
         otpStore[superAdminNumber] = otp;
         
         console.log(`\n======================================================`);
-        console.log(`🔔 SMS INITIATED`);
+        console.log(`≡ƒöö SMS INITIATED`);
         console.log(`To: ${superAdminNumber}`);
         console.log(`Message: Your owner registration OTP is ${otp}`);
         console.log(`======================================================\n`);
@@ -281,10 +288,10 @@ app.post('/api/auth/send-otp', async (req, res) => {
             });
 
             if (smsData.success) {
-                console.log('✅ SMS successfully sent via Textbelt!');
+                console.log('Γ£à SMS successfully sent via Textbelt!');
                 return res.json({ success: true, message: 'OTP sent to your number via SMS' });
             } else {
-                console.log('⚠️ Textbelt SMS failed (Quota exceeded?):', smsData.error);
+                console.log('ΓÜá∩╕Å Textbelt SMS failed (Quota exceeded?):', smsData.error);
                 return res.json({ success: true, message: 'OTP logged to server console (SMS quota exceeded)' });
             }
         } catch (smsError) {
@@ -976,7 +983,7 @@ app.get('/api/images/search', requireAdmin, async (req, res) => {
 });
 
 // --- LIVE SQL PRESENTATION VIEWER ---
-// Development/presentation endpoint — ensure this is removed or protected in production
+// Development/presentation endpoint ΓÇö ensure this is removed or protected in production
 app.get('/api/sql-dump', async (req, res) => {
     try {
         const orders = await db.all("SELECT * FROM orders ORDER BY id DESC");
@@ -992,7 +999,7 @@ app.get('/api/sql-dump', async (req, res) => {
     }
 });
 
-// Development/presentation endpoint — ensure this is removed or protected in production
+// Development/presentation endpoint ΓÇö ensure this is removed or protected in production
 app.get('/sql-viewer', (req, res) => {
     res.sendFile(path.join(__dirname, 'sql-viewer.html'));
 });
