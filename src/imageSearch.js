@@ -3,7 +3,8 @@ export const searchPerfectImage = async (query, adminToken) => {
         throw new Error("Please enter an item name to search for images.");
     }
     
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl.replace(/\/$/, '')}/api`;
     
     try {
         const response = await fetch(`${API_URL}/images/search?query=${encodeURIComponent(query.trim())}`, {

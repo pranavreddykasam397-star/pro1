@@ -8,7 +8,8 @@ import CartSidebar from './components/CartSidebar';
 import { searchPerfectImage } from './imageSearch';
 import './styles/games.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl.replace(/\/$/, '')}/api`;
 
 function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, dailySpecial }) {
   const [showPayment, setShowPayment] = useState(false);
