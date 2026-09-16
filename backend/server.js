@@ -26,7 +26,7 @@ const uniqueOrigins = [...new Set(allowedOrigins)];
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || uniqueOrigins.includes(origin)) {
+        if (!origin || uniqueOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
             callback(null, true);
         } else {
             console.warn(`CORS blocked origin: ${origin}`);
