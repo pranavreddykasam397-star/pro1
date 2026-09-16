@@ -64,8 +64,48 @@ async function connectMongoDB() {
     }
 }
 
+async function seedMongoDB(initialMenu = []) {
+    try {
+        if (mongoose.connection.readyState !== 1) return;
+        
+        // Seed Menu
+        const menuCount = await Menu.countDocuments();
+        if (menuCount === 0 && initialMenu.length > 0) {
+            console.log('🍃 Seeding MongoDB Atlas with initial menu items...');
+            const docs = initialMenu.map((item, idx) => ({
+                id: item.id || idx + 1,
+                name: item.name,
+                price: item.price,
+                category: item.category,
+                type: item.type,
+                imageUrl: item.imageUrl,
+                isSpecial: item.isSpecial ? true : false,
+                timeHash: Date.now()
+            }));
+            await Menu.insertMany(docs);
+            console.log(`🍃 MongoDB Atlas seeded with ${docs.length} menu items!`);
+        }
+
+        // Seed Config Setting
+        const settingExists = await Setting.findOne({ key: 'config' });
+        if (!settingExists) {
+            await Setting.create({ key: 'config', value: JSON.stringify({ ownerQr: '', upiId: '' }) });
+        }
+
+        // Seed Default Owner
+        const ownerExists = await Owner.findOne({ email: 'admin@example.com' });
+        if (!ownerExists) {
+            const defaultHash = process.env.OWNER_HASH || "$2b$10$0DAV3UE6KM9GGdOd0ricMunbm2hmST3w6JcPHJGCUN8DLYXwpG7Tm";
+            await Owner.create({ email: 'admin@example.com', password_hash: defaultHash });
+        }
+    } catch (err) {
+        console.error('❌ MongoDB seeding error:', err.message);
+    }
+}
+
 module.exports = {
     connectMongoDB,
+    seedMongoDB,
     Menu,
     Order,
     Setting,
