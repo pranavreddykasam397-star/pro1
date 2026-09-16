@@ -8,6 +8,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
+const { connectMongoDB } = require('./mongodb');
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'super_secret_admin_token_123';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://pro1-chi-sable.vercel.app';
@@ -1010,5 +1011,6 @@ setupDb().then(async () => {
     await runMigrations();
     // Auto-seed menu every time the server starts
     await seedMenu();
+    await connectMongoDB();
     app.listen(PORT, () => console.log(`Backend API live on http://localhost:${PORT}`));
 });
