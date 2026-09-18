@@ -8,7 +8,7 @@ import CartSidebar from './components/CartSidebar';
 import { searchPerfectImage } from './imageSearch';
 import './styles/games.css';
 
-const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const rawApiUrl = import.meta.env.VITE_API_URL || '/api';
 const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl.replace(/\/$/, '')}/api`;
 
 function CustomerView({ menu, cart, setCart, ownerQr, upiId, onOrderComplete, dailySpecial }) {

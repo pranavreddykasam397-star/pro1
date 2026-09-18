@@ -796,11 +796,15 @@ app.get('/api/sql-dump', async (req, res) => {
 // ------------------------------------
 
 const PORT = process.env.PORT || 3000;
-connectMongoDB().then(async (isConnected) => {
-    if (isConnected) {
-        await seedMongoDB(initialMenu);
-    } else {
-        console.warn('⚠️ Server started without active MongoDB connection.');
-    }
-    app.listen(PORT, () => console.log(`Backend API live on http://localhost:${PORT}`));
-});
+if (require.main === module) {
+    connectMongoDB().then(async (isConnected) => {
+        if (isConnected) {
+            await seedMongoDB(initialMenu);
+        } else {
+            console.warn('⚠️ Server started without active MongoDB connection.');
+        }
+        app.listen(PORT, () => console.log(`Backend API live on http://localhost:${PORT}`));
+    });
+}
+
+module.exports = app;
