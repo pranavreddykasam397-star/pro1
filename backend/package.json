@@ -4,7 +4,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "node server.js"
+    "build": "echo 'No build step required'"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
