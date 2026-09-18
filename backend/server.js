@@ -1,14 +1,21 @@
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
 const path = require('path');
 
-// Load env from backend/.env explicitly (tasks/PM2 may start from repo root)
+// Load env from backend/.env explicitly
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-const { connectMongoDB, seedMongoDB } = require('./mongodb');
+const {
+    connectMongoDB,
+    seedMongoDB,
+    Menu,
+    Order,
+    Setting,
+    Customer,
+    Owner,
+    DailySummary
+} = require('./mongodb');
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'super_secret_admin_token_123';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://pro1-chi-sable.vercel.app';
@@ -21,7 +28,6 @@ const allowedOrigins = [
     FRONTEND_URL
 ].filter(Boolean);
 
-// Deduplicate origins
 const uniqueOrigins = [...new Set(allowedOrigins)];
 
 app.use(cors({
@@ -30,7 +36,7 @@ app.use(cors({
             callback(null, true);
         } else {
             console.warn(`CORS blocked origin: ${origin}`);
-            callback(null, false); // Reject gracefully without throwing (avoids 500)
+            callback(null, false);
         }
     },
     methods: ['GET', 'POST', 'DELETE', 'PATCH'],
@@ -39,10 +45,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
-// Heritage API Endpoints
-app.get('/', (req, res) => res.json({ status: 'Heritage API Live' }));
-
-let db;
+app.get('/', (req, res) => res.json({ status: 'Heritage API Live (MongoDB Powered)' }));
 
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
@@ -64,7 +67,7 @@ function requireAdmin(req, res, next) {
 }
 
 function isValidUrl(string) {
-    if (!string) return true; // allow empty strings if optional
+    if (!string) return true;
     try {
         const url = new URL(string);
         return url.protocol === 'http:' || url.protocol === 'https:' || url.protocol === 'data:';
@@ -73,122 +76,12 @@ function isValidUrl(string) {
     }
 }
 
-async function setupDb() {
-    db = await open({
-        filename: './database.sqlite',
-        driver: sqlite3.Database
-    });
-
-    await db.run("PRAGMA foreign_keys = ON;"); // [Fix 1.4] Enforce FK constraints
-    await db.run("PRAGMA journal_mode = WAL;"); // [Fix 2.1] Enable WAL mode
-
-    await db.exec(`
-        -- Topic 2: Data Types (VARCHAR instead of TEXT)
-        CREATE TABLE IF NOT EXISTS menu (
-            id INTEGER PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            price INTEGER NOT NULL,
-            category VARCHAR(100),
-            type VARCHAR(20),
-            imageUrl TEXT,
-            isSpecial INTEGER DEFAULT 0,
-            timeHash INTEGER NOT NULL
-        );
-        
-        -- Topic 7: Database Modeling (Splitting orders from their items)
-        CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY,
-            total INTEGER NOT NULL,
-            method VARCHAR(50) NOT NULL,
-            time DATETIME DEFAULT CURRENT_TIMESTAMP,
-            timeHash INTEGER NOT NULL,
-            customer_id INTEGER,
-            phone VARCHAR(20)
-        );
-        
-        -- Topic 7: Foreign Keys (ON DELETE CASCADE)
-        CREATE TABLE IF NOT EXISTS order_items (
-            id INTEGER PRIMARY KEY,
-            order_id INTEGER NOT NULL,
-            menu_name VARCHAR(255) NOT NULL,
-            quantity INTEGER NOT NULL,
-            price_at_time INTEGER NOT NULL,
-            FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
-        );
-        
-        CREATE TABLE IF NOT EXISTS settings (
-            key VARCHAR(50) PRIMARY KEY,
-            value TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS daily_summaries (
-            id INTEGER PRIMARY KEY,
-            date TEXT NOT NULL UNIQUE,
-            total_revenue INTEGER NOT NULL,
-            order_count INTEGER NOT NULL,
-            orders_json TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS customers (
-            id INTEGER PRIMARY KEY,
-            pin TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS owners (
-            id INTEGER PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL
-        );
-    `);
-
-    // Ensure config exists
-    const row = await db.get("SELECT * FROM settings WHERE key = 'config'");
-    if (!row) {
-        await db.run("INSERT INTO settings (key, value) VALUES ('config', ?)", [JSON.stringify({ ownerQr: '', upiId: '' })]);
-    }
+function parseInteger(value) {
+    if (typeof value === 'number' && Number.isInteger(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '' && Number.isInteger(Number(value))) return Number(value);
+    return null;
 }
 
-// Run database migrations for columns that might be missing in older databases
-async function runMigrations() {
-    try {
-        await db.run("ALTER TABLE menu ADD COLUMN isSpecial INTEGER DEFAULT 0");
-    } catch (e) {
-        if (!e.message.includes('duplicate column')) console.error('Migration error (menu.isSpecial):', e);
-    }
-    try {
-        await db.run("ALTER TABLE orders ADD COLUMN customer_id INTEGER");
-    } catch (e) {
-        if (!e.message.includes('duplicate column')) console.error('Migration error (orders.customer_id):', e);
-    }
-    try {
-        await db.run("ALTER TABLE orders ADD COLUMN payment_status VARCHAR(50) DEFAULT 'PENDING'");
-    } catch (e) {
-        if (!e.message.includes('duplicate column')) console.error('Migration error (orders.payment_status):', e);
-    }
-    try {
-        await db.run("ALTER TABLE orders ADD COLUMN payment_screenshot TEXT");
-    } catch (e) {
-        if (!e.message.includes('duplicate column')) console.error('Migration error (orders.payment_screenshot):', e);
-    }
-    try {
-        await db.run("ALTER TABLE orders ADD COLUMN phone VARCHAR(20)");
-    } catch (e) {
-        if (!e.message.includes('duplicate column')) console.error('Migration error (orders.phone):', e);
-    }
-
-    try {
-        const defaultOwner = await db.get("SELECT * FROM owners WHERE email = 'admin@example.com'");
-        if (!defaultOwner) {
-            const defaultHash = process.env.OWNER_HASH || "$2b$10$0DAV3UE6KM9GGdOd0ricMunbm2hmST3w6JcPHJGCUN8DLYXwpG7Tm";
-            await db.run("INSERT INTO owners (email, password_hash) VALUES (?, ?)", ['admin@example.com', defaultHash]);
-        }
-    } catch (e) {
-        console.error('Migration error (seed owners):', e);
-    }
-}
-
-// Default menu items ΓÇö kept in sync with frontend menuList.js
 const fs = require('fs');
 let initialMenu = [];
 try {
@@ -199,48 +92,34 @@ try {
     console.error("Failed to load initialMenu from menuData.json:", e);
 }
 
-// Seed (refresh) the menu table: clear existing rows, re-insert defaults
 async function seedMenu() {
-    console.log('Seeding database with default menu items...');
-    await db.run('BEGIN TRANSACTION');
-    try {
-        await db.run("DELETE FROM menu");
-        for (const item of initialMenu) {
-            await db.run(
-                "INSERT INTO menu (name, price, category, type, imageUrl, timeHash) VALUES (?, ?, ?, ?, ?, ?)",
-                [item.name, item.price, item.category, item.type, item.imageUrl, Date.now()]
-            );
-        }
-        await db.run('COMMIT');
-        console.log(`Seeded ${initialMenu.length} menu items.`);
-    } catch (e) {
-        await db.run('ROLLBACK');
-        console.error('Seed failed:', e.message);
-        throw e;
-    }
+    console.log('Seeding MongoDB with default menu items...');
+    await Menu.deleteMany({});
+    const docs = initialMenu.map((item, idx) => ({
+        id: item.id || idx + 1,
+        name: item.name,
+        price: item.price,
+        category: item.category,
+        type: item.type,
+        imageUrl: item.imageUrl,
+        isSpecial: item.isSpecial ? true : false,
+        timeHash: Date.now()
+    }));
+    await Menu.insertMany(docs);
+    console.log(`Seeded ${docs.length} menu items into MongoDB.`);
 }
 
-// API endpoint so the frontend can also trigger a seed/refresh
-app.post('/api/seed', requireAdmin, async (req, res) => { // [Fix 1.2] Add requireAdmin
+app.post('/api/seed', requireAdmin, async (req, res) => {
     try {
         await seedMenu();
-        const menu = await db.all("SELECT * FROM menu");
+        const menu = await Menu.find().lean();
         res.json({ success: true, count: menu.length, menu });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-
-function parseInteger(value) {
-    if (typeof value === 'number' && Number.isInteger(value)) return value;
-    if (typeof value === 'string' && value.trim() !== '' && Number.isInteger(Number(value))) return Number(value);
-    return null;
-}
-
-// [Fix 1.3] New auth route
-
-const otpStore = {}; // Temporary store for OTPs
+const otpStore = {};
 
 app.post('/api/auth/send-otp', async (req, res) => {
     try {
@@ -250,16 +129,15 @@ app.post('/api/auth/send-otp', async (req, res) => {
         otpStore[superAdminNumber] = otp;
         
         console.log(`\n======================================================`);
-        console.log(`≡ƒöö SMS INITIATED`);
+        console.log(`📱 SMS INITIATED`);
         console.log(`To: ${superAdminNumber}`);
         console.log(`Message: Your owner registration OTP is ${otp}`);
         console.log(`======================================================\n`);
 
         try {
-            // Attempt to send an actual SMS using Textbelt free tier (1 free per day)
             const https = require('https');
             const postData = JSON.stringify({
-                phone: '919392767835', // Added India country code 91
+                phone: '919392767835',
                 message: `Your Heritage owner registration OTP is: ${otp}`,
                 key: 'textbelt',
             });
@@ -289,10 +167,10 @@ app.post('/api/auth/send-otp', async (req, res) => {
             });
 
             if (smsData.success) {
-                console.log('Γ£à SMS successfully sent via Textbelt!');
+                console.log('✅ SMS successfully sent via Textbelt!');
                 return res.json({ success: true, message: 'OTP sent to your number via SMS' });
             } else {
-                console.log('ΓÜá∩╕Å Textbelt SMS failed (Quota exceeded?):', smsData.error);
+                console.log('⚠️ Textbelt SMS failed (Quota exceeded?):', smsData.error);
                 return res.json({ success: true, message: 'OTP logged to server console (SMS quota exceeded)' });
             }
         } catch (smsError) {
@@ -304,7 +182,6 @@ app.post('/api/auth/send-otp', async (req, res) => {
     }
 });
 
-// Secret endpoint for Super Admin to bypass/retrieve OTP during testing
 app.get('/api/auth/dev-otp', (req, res) => {
     const otp = otpStore['9392767835'];
     res.json({ otp: otp || null });
@@ -323,16 +200,15 @@ app.post('/api/auth/owner-signup', async (req, res) => {
             return res.status(401).json({ error: 'Invalid or expired OTP' });
         }
         
-        // Clear OTP after successful verification
         delete otpStore[superAdminNumber];
 
-        const existingOwner = await db.get("SELECT * FROM owners WHERE email = ?", [email.toLowerCase().trim()]);
+        const existingOwner = await Owner.findOne({ email: email.toLowerCase().trim() });
         if (existingOwner) {
             return res.status(400).json({ error: 'An owner with this email already exists' });
         }
 
         const password_hash = await bcrypt.hash(password, 10);
-        await db.run("INSERT INTO owners (email, password_hash) VALUES (?, ?)", [email.toLowerCase().trim(), password_hash]);
+        await Owner.create({ email: email.toLowerCase().trim(), password_hash });
 
         res.json({ success: true });
     } catch (e) {
@@ -348,7 +224,7 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        const owner = await db.get("SELECT * FROM owners WHERE email = ?", [email.toLowerCase().trim()]);
+        const owner = await Owner.findOne({ email: email.toLowerCase().trim() });
         if (!owner) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
@@ -366,19 +242,19 @@ app.post('/api/auth/login', async (req, res) => {
 // Public data endpoint
 app.get('/api/data', async (req, res) => {
     try {
-        const menu = await db.all("SELECT * FROM menu");
-        const settingsRow = await db.get("SELECT * FROM settings WHERE key = 'config'");
+        const menu = await Menu.find().lean();
+        const settingsRow = await Setting.findOne({ key: 'config' }).lean();
         let settings = { upiId: '' };
-        if (settingsRow) {
+        if (settingsRow && settingsRow.value) {
             try {
                 const parsed = JSON.parse(settingsRow.value);
                 settings.upiId = parsed.upiId || '';
             } catch { }
         }
 
-        const dailySpecialRow = await db.get("SELECT * FROM settings WHERE key = 'daily_special'");
+        const dailySpecialRow = await Setting.findOne({ key: 'daily_special' }).lean();
         let dailySpecial = null;
-        if (dailySpecialRow) {
+        if (dailySpecialRow && dailySpecialRow.value) {
             try {
                 dailySpecial = JSON.parse(dailySpecialRow.value);
             } catch { }
@@ -393,61 +269,38 @@ app.get('/api/data', async (req, res) => {
 // Admin data endpoint
 app.get('/api/admin/data', requireAdmin, async (req, res) => {
     try {
-        const menu = await db.all("SELECT * FROM menu");
+        const menu = await Menu.find().lean();
+        const rawOrders = await Order.find().sort({ timeHash: -1 }).lean();
 
-        // Fetch orders + their items with a single LEFT JOIN (avoid N+1).
-        const rows = await db.all(`
-            SELECT
-                o.id AS id,
-                o.total AS total,
-                o.method AS method,
-                o.time AS time,
-                o.timeHash AS timeHash,
-                o.customer_id AS customer_id,
-                o.phone AS phone,
-                o.payment_status AS payment_status,
-                o.payment_screenshot AS payment_screenshot,
-                oi.menu_name AS name,
-                oi.quantity AS qty,
-                oi.price_at_time AS price
-            FROM orders o
-            LEFT JOIN order_items oi ON oi.order_id = o.id
-            ORDER BY o.timeHash DESC
-        `);
+        const orders = rawOrders.map(o => ({
+            id: o.id,
+            total: o.total,
+            method: o.method,
+            time: o.time,
+            timeHash: o.timeHash,
+            customer_id: o.customer_id,
+            phone: o.phone || null,
+            payment_status: o.payment_status || 'PENDING',
+            payment_screenshot: o.payment_screenshot || null,
+            items: (o.items || []).map(i => ({
+                name: i.menu_name,
+                qty: i.quantity,
+                price: i.price_at_time
+            }))
+        }));
 
-        const ordersById = new Map();
-        for (const row of rows) {
-            if (!ordersById.has(row.id)) {
-                ordersById.set(row.id, {
-                    id: row.id,
-                    total: row.total,
-                    method: row.method,
-                    time: row.time,
-                    timeHash: row.timeHash,
-                    customer_id: row.customer_id,
-                    phone: row.phone || null,
-                    payment_status: row.payment_status || 'PENDING',
-                    payment_screenshot: row.payment_screenshot || null,
-                    items: []
-                });
-            }
+        const rawSummaries = await DailySummary.find().sort({ id: -1 }).lean();
+        const dailySummaries = rawSummaries.map(s => ({
+            id: s.id,
+            date: s.date,
+            total_revenue: s.total_revenue,
+            order_count: s.order_count,
+            orders_json: s.orders_json
+        }));
 
-            if (row.name) {
-                ordersById.get(row.id).items.push({
-                    name: row.name,
-                    qty: row.qty,
-                    price: row.price
-                });
-            }
-        }
-
-        const orders = Array.from(ordersById.values());
-
-        const dailySummaries = await db.all("SELECT * FROM daily_summaries ORDER BY id DESC");
-
-        const settingsRow = await db.get("SELECT * FROM settings WHERE key = 'config'");
+        const settingsRow = await Setting.findOne({ key: 'config' }).lean();
         let settings = { ownerQr: '', upiId: '' };
-        if (settingsRow) {
+        if (settingsRow && settingsRow.value) {
             try {
                 settings = { ...settings, ...JSON.parse(settingsRow.value) };
             } catch {
@@ -455,9 +308,9 @@ app.get('/api/admin/data', requireAdmin, async (req, res) => {
             }
         }
 
-        const dailySpecialRow = await db.get("SELECT * FROM settings WHERE key = 'daily_special'");
+        const dailySpecialRow = await Setting.findOne({ key: 'daily_special' }).lean();
         let dailySpecial = null;
-        if (dailySpecialRow) {
+        if (dailySpecialRow && dailySpecialRow.value) {
             try {
                 dailySpecial = JSON.parse(dailySpecialRow.value);
             } catch { }
@@ -479,7 +332,6 @@ app.post('/api/menu', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Invalid imageUrl' });
         }
 
-        // [Fix 2.4] Validate category and type
         const allowedTypes = ['veg', 'non-veg', 'nonveg'];
         const normalizedType = typeof type === 'string' ? type.trim().toLowerCase() : 'veg';
         if (!allowedTypes.includes(normalizedType)) {
@@ -499,11 +351,19 @@ app.post('/api/menu', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Invalid timeHash' });
         }
 
-        const result = await db.run(
-            "INSERT INTO menu (name, price, category, type, imageUrl, timeHash) VALUES (?, ?, ?, ?, ?, ?)",
-            [name.trim(), parsedPrice, normalizedCategory, type || 'veg', imageUrl || '', parsedTimeHash]
-        );
-        const newItem = await db.get("SELECT * FROM menu WHERE id = ?", [result.lastID]);
+        const maxItem = await Menu.findOne().sort({ id: -1 }).lean();
+        const nextId = maxItem && maxItem.id ? maxItem.id + 1 : 1;
+
+        const newItem = await Menu.create({
+            id: nextId,
+            name: name.trim(),
+            price: parsedPrice,
+            category: normalizedCategory,
+            type: type || 'veg',
+            imageUrl: imageUrl || '',
+            timeHash: parsedTimeHash
+        });
+
         res.json(newItem);
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -514,7 +374,7 @@ app.delete('/api/menu/:id', requireAdmin, async (req, res) => {
     try {
         const id = parseInteger(req.params.id);
         if (id === null) return res.status(400).json({ error: 'Invalid id' });
-        await db.run("DELETE FROM menu WHERE id = ?", [id]);
+        await Menu.deleteOne({ id });
         res.json({ success: true, id });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -542,21 +402,19 @@ app.post('/api/orders', async (req, res) => {
         }
 
         const normalizedItems = [];
-        let serverCalculatedTotal = 0; // [Fix 1.1] Recalculate total server-side
+        let serverCalculatedTotal = 0;
 
         for (let item of items) {
             const itemId = parseInteger(item?.id);
             const itemName = typeof item?.name === 'string' ? item.name.trim() : '';
             const qty = parseInteger(item?.quantity);
-            // [Fix 1.5] Enforce quantity max 99
             if (!itemName || itemName.length > 255 || qty === null || qty <= 0 || qty > 99) {
                 return res.status(422).json({ error: 'Invalid item payload' });
             }
 
-            // [Fix 1.1] lookup price from db securely using item ID or name
             const dbItem = itemId ?
-                await db.get("SELECT price FROM menu WHERE id = ?", [itemId]) :
-                await db.get("SELECT price FROM menu WHERE name = ?", [itemName]);
+                await Menu.findOne({ id: itemId }).lean() :
+                await Menu.findOne({ name: itemName }).lean();
 
             if (!dbItem) {
                 return res.status(400).json({ error: 'Item does not exist in menu' });
@@ -564,38 +422,42 @@ app.post('/api/orders', async (req, res) => {
             const actualPrice = dbItem.price;
             serverCalculatedTotal += (actualPrice * qty);
 
-            normalizedItems.push({ name: itemName, quantity: qty, price: actualPrice, id: itemId });
+            normalizedItems.push({
+                menu_name: itemName,
+                quantity: qty,
+                price_at_time: actualPrice
+            });
         }
 
-        // Topic 9: Transactions (BEGIN and COMMIT) ensuring atomicity
-        try {
-            await db.run('BEGIN TRANSACTION');
+        const maxOrder = await Order.findOne().sort({ id: -1 }).lean();
+        const orderId = maxOrder && maxOrder.id ? maxOrder.id + 1 : 1;
+        const paymentStatus = method.trim() === 'COD' ? 'CONFIRMED' : 'PENDING';
 
-            const paymentStatus = method.trim() === 'COD' ? 'CONFIRMED' : 'PENDING';
-            const result = await db.run(
-                "INSERT INTO orders (total, method, time, timeHash, customer_id, payment_status, phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [serverCalculatedTotal, method.trim(), time, parsedTimeHash, customer_id || null, paymentStatus, phone || null]
-            );
-            const orderId = result.lastID;
+        const newOrderDoc = await Order.create({
+            id: orderId,
+            total: serverCalculatedTotal,
+            method: method.trim(),
+            time: time ? new Date(time) : new Date(),
+            timeHash: parsedTimeHash,
+            customer_id: customer_id || null,
+            phone: phone || null,
+            payment_status: paymentStatus,
+            items: normalizedItems
+        });
 
-            for (let item of normalizedItems) {
-                await db.run(
-                    "INSERT INTO order_items (order_id, menu_name, quantity, price_at_time) VALUES (?, ?, ?, ?)",
-                    [orderId, item.name, item.quantity, item.price]
-                );
-            }
+        const orderResponse = {
+            id: newOrderDoc.id,
+            total: newOrderDoc.total,
+            method: newOrderDoc.method,
+            time: newOrderDoc.time,
+            timeHash: newOrderDoc.timeHash,
+            customer_id: newOrderDoc.customer_id,
+            phone: newOrderDoc.phone,
+            payment_status: newOrderDoc.payment_status,
+            items: newOrderDoc.items.map(i => ({ name: i.menu_name, qty: i.quantity, price: i.price_at_time }))
+        };
 
-            await db.run('COMMIT');
-
-            const newOrder = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
-            const orderItems = await db.all("SELECT menu_name AS name, quantity AS qty, price_at_time AS price FROM order_items WHERE order_id = ?", [orderId]);
-            newOrder.items = orderItems;
-
-            res.json(newOrder);
-        } catch (transactionError) {
-            await db.run('ROLLBACK');
-            throw transactionError; // Pass to the outer catch handler
-        }
+        res.json(orderResponse);
     } catch (e) {
         if (e.message === 'Invalid item payload') {
             return res.status(400).json({ error: e.message });
@@ -604,7 +466,6 @@ app.post('/api/orders', async (req, res) => {
     }
 });
 
-// Update order payment status (Admin only)
 app.patch('/api/orders/:id/status', requireAdmin, async (req, res) => {
     try {
         const id = parseInteger(req.params.id);
@@ -612,14 +473,13 @@ app.patch('/api/orders/:id/status', requireAdmin, async (req, res) => {
         if (id === null || !['PENDING', 'CONFIRMED', 'REQUEST_SCREENSHOT'].includes(status)) {
             return res.status(400).json({ error: 'Invalid parameters' });
         }
-        await db.run("UPDATE orders SET payment_status = ? WHERE id = ?", [status, id]);
+        await Order.updateOne({ id }, { payment_status: status });
         res.json({ success: true, status });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-// Upload payment screenshot (Customer)
 app.post('/api/orders/:id/screenshot', async (req, res) => {
     try {
         const id = parseInteger(req.params.id);
@@ -631,12 +491,12 @@ app.post('/api/orders/:id/screenshot', async (req, res) => {
             return res.status(400).json({ error: 'Customer ID and PIN required' });
         }
 
-        const order = await db.get("SELECT customer_id FROM orders WHERE id = ?", [id]);
+        const order = await Order.findOne({ id }).lean();
         if (!order || order.customer_id !== parseInt(customer_id)) {
             return res.status(403).json({ error: 'Order not found or access denied' });
         }
 
-        const customer = await db.get("SELECT * FROM customers WHERE id = ?", [parseInt(customer_id)]);
+        const customer = await Customer.findOne({ id: parseInt(customer_id) }).lean();
         if (!customer) {
             return res.status(401).json({ error: 'Invalid Customer ID or PIN' });
         }
@@ -646,14 +506,13 @@ app.post('/api/orders/:id/screenshot', async (req, res) => {
             return res.status(401).json({ error: 'Invalid Customer ID or PIN' });
         }
 
-        await db.run("UPDATE orders SET payment_screenshot = ?, payment_status = 'SCREENSHOT_UPLOADED' WHERE id = ?", [screenshot, id]);
+        await Order.updateOne({ id }, { payment_screenshot: screenshot, payment_status: 'SCREENSHOT_UPLOADED' });
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-// Generate new customer ID and accept PIN
 app.post('/api/customers/signup', async (req, res) => {
     try {
         const { pin } = req.body || {};
@@ -666,8 +525,8 @@ app.post('/api/customers/signup', async (req, res) => {
         let attempts = 0;
 
         while (!isUnique && attempts < 10) {
-            newId = Math.floor(1000 + Math.random() * 9000); // 4-digit ID
-            const existing = await db.get("SELECT id FROM customers WHERE id = ?", [newId]);
+            newId = Math.floor(1000 + Math.random() * 9000);
+            const existing = await Customer.findOne({ id: newId }).lean();
             if (!existing) isUnique = true;
             attempts++;
         }
@@ -675,7 +534,7 @@ app.post('/api/customers/signup', async (req, res) => {
         if (!isUnique) return res.status(500).json({ error: 'Failed to generate unique ID' });
 
         const hashedPin = await bcrypt.hash(pin.toString(), 10);
-        await db.run("INSERT INTO customers (id, pin) VALUES (?, ?)", [newId, hashedPin]);
+        await Customer.create({ id: newId, pin: hashedPin });
 
         res.json({ id: newId, pin: pin.toString() });
     } catch (e) {
@@ -683,13 +542,12 @@ app.post('/api/customers/signup', async (req, res) => {
     }
 });
 
-// Fetch customer order history
 app.post('/api/customers/history', async (req, res) => {
     try {
         const { id, pin } = req.body || {};
         if (!id || !pin) return res.status(400).json({ error: 'ID and PIN required' });
 
-        const customer = await db.get("SELECT * FROM customers WHERE id = ?", [parseInt(id)]);
+        const customer = await Customer.findOne({ id: parseInt(id) }).lean();
         if (!customer) {
             return res.status(401).json({ error: 'Invalid ID or PIN' });
         }
@@ -699,98 +557,51 @@ app.post('/api/customers/history', async (req, res) => {
             return res.status(401).json({ error: 'Invalid ID or PIN' });
         }
 
-        const rows = await db.all(`
-            SELECT
-                o.id AS id,
-                o.total AS total,
-                o.method AS method,
-                o.time AS time,
-                o.timeHash AS timeHash,
-                oi.menu_name AS name,
-                oi.quantity AS qty,
-                oi.price_at_time AS price
-            FROM orders o
-            JOIN order_items oi ON oi.order_id = o.id
-            WHERE o.customer_id = ?
-            ORDER BY o.timeHash DESC
-        `, [customer.id]);
+        const rawOrders = await Order.find({ customer_id: customer.id }).sort({ timeHash: -1 }).lean();
+        const orders = rawOrders.map(o => ({
+            id: o.id,
+            total: o.total,
+            method: o.method,
+            time: o.time,
+            timeHash: o.timeHash,
+            items: (o.items || []).map(i => ({
+                name: i.menu_name,
+                qty: i.quantity,
+                price: i.price_at_time
+            }))
+        }));
 
-        const ordersById = new Map();
-        for (const row of rows) {
-            if (!ordersById.has(row.id)) {
-                ordersById.set(row.id, {
-                    id: row.id,
-                    total: row.total,
-                    method: row.method,
-                    time: row.time,
-                    timeHash: row.timeHash,
-                    items: []
-                });
-            }
-            if (row.name) {
-                ordersById.get(row.id).items.push({
-                    name: row.name,
-                    qty: row.qty,
-                    price: row.price
-                });
-            }
-        }
-
-        res.json({ orders: Array.from(ordersById.values()) });
+        res.json({ orders });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-// Admin fetch customer order history
 app.get('/api/admin/customers/:id/orders', requireAdmin, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
         if (!id) return res.status(400).json({ error: 'Invalid ID' });
 
-        const customer = await db.get("SELECT * FROM customers WHERE id = ?", [id]);
+        const customer = await Customer.findOne({ id }).lean();
         if (!customer) {
             return res.status(404).json({ error: 'Customer not found' });
         }
 
-        const rows = await db.all(`
-            SELECT
-                o.id AS id,
-                o.total AS total,
-                o.method AS method,
-                o.time AS time,
-                o.timeHash AS timeHash,
-                oi.menu_name AS name,
-                oi.quantity AS qty,
-                oi.price_at_time AS price
-            FROM orders o
-            JOIN order_items oi ON oi.order_id = o.id
-            WHERE o.customer_id = ?
-            ORDER BY o.timeHash DESC
-        `, [id]);
+        const rawOrders = await Order.find({ customer_id: id }).sort({ timeHash: -1 }).lean();
+        const orders = rawOrders.map(o => ({
+            id: o.id,
+            total: o.total,
+            method: o.method,
+            time: o.time,
+            timeHash: o.timeHash,
+            items: (o.items || []).map(i => ({
+                name: i.menu_name,
+                qty: i.quantity,
+                price: i.price_at_time
+            }))
+        }));
 
-        const ordersById = new Map();
-        for (const row of rows) {
-            if (!ordersById.has(row.id)) {
-                ordersById.set(row.id, {
-                    id: row.id,
-                    total: row.total,
-                    method: row.method,
-                    time: row.time,
-                    timeHash: row.timeHash,
-                    items: []
-                });
-            }
-            if (row.name) {
-                ordersById.get(row.id).items.push({
-                    name: row.name,
-                    qty: row.qty,
-                    price: row.price
-                });
-            }
-        }
-
-        res.json({ orders: Array.from(ordersById.values()) });
+        res.json({ orders });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -798,7 +609,7 @@ app.get('/api/admin/customers/:id/orders', requireAdmin, async (req, res) => {
 
 app.post('/api/end-day', requireAdmin, async (req, res) => {
     try {
-        const orders = await db.all("SELECT * FROM orders");
+        const orders = await Order.find().lean();
         if (orders.length === 0) {
             return res.status(400).json({ error: 'No active orders to summarize' });
         }
@@ -806,14 +617,6 @@ app.post('/api/end-day', requireAdmin, async (req, res) => {
         const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
         const orderCount = orders.length;
 
-        // Fetch detailed items for the summary
-        const allItems = await db.all(`
-            SELECT o.id AS order_id, oi.menu_name, oi.quantity, oi.price_at_time
-            FROM orders o
-            JOIN order_items oi ON oi.order_id = o.id
-        `);
-
-        // [Fix 2.2] Store formatted IST date string instead of UTC
         const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
         const summaryData = {
@@ -821,29 +624,33 @@ app.post('/api/end-day', requireAdmin, async (req, res) => {
             count: orderCount,
             date: dateStr,
             orders: orders.map(o => ({
-                ...o,
-                items: allItems.filter(i => i.order_id === o.id)
+                id: o.id,
+                total: o.total,
+                method: o.method,
+                time: o.time,
+                timeHash: o.timeHash,
+                customer_id: o.customer_id,
+                phone: o.phone,
+                payment_status: o.payment_status,
+                payment_screenshot: o.payment_screenshot,
+                items: (o.items || []).map(i => ({ menu_name: i.menu_name, quantity: i.quantity, price_at_time: i.price_at_time }))
             }))
         };
 
-        await db.run('BEGIN TRANSACTION');
-        try {
-            await db.run(
-                "INSERT OR REPLACE INTO daily_summaries (date, total_revenue, order_count, orders_json) VALUES (?, ?, ?, ?)",
-                [dateStr, totalRevenue, orderCount, JSON.stringify(summaryData)]
-            );
-            await db.run("DELETE FROM orders"); // Cascades to order_items
+        const maxSummary = await DailySummary.findOne().sort({ id: -1 }).lean();
+        const summaryId = maxSummary && maxSummary.id ? maxSummary.id + 1 : 1;
 
-            // Remove the daily special at the end of the day
-            await db.run("DELETE FROM menu WHERE isSpecial = 1 OR category = 'TODAY''S SPECIAL'");
-            await db.run("DELETE FROM settings WHERE key = 'daily_special'");
+        await DailySummary.updateOne(
+            { date: dateStr },
+            { id: summaryId, date: dateStr, total_revenue: totalRevenue, order_count: orderCount, orders_json: JSON.stringify(summaryData) },
+            { upsert: true }
+        );
 
-            await db.run('COMMIT');
-            res.json({ success: true, summary: summaryData });
-        } catch (e) {
-            await db.run('ROLLBACK');
-            throw e;
-        }
+        await Order.deleteMany({});
+        await Menu.deleteMany({ $or: [{ isSpecial: true }, { category: "TODAY'S SPECIAL" }] });
+        await Setting.deleteOne({ key: 'daily_special' });
+
+        res.json({ success: true, summary: summaryData });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -859,9 +666,10 @@ app.post('/api/settings', requireAdmin, async (req, res) => {
         }
 
         const sanitizedSettings = { ownerQr, upiId };
-        await db.run(
-            "UPDATE settings SET value = ? WHERE key = 'config'",
-            [JSON.stringify(sanitizedSettings)]
+        await Setting.updateOne(
+            { key: 'config' },
+            { key: 'config', value: JSON.stringify(sanitizedSettings) },
+            { upsert: true }
         );
         res.json(sanitizedSettings);
     } catch (e) {
@@ -883,13 +691,11 @@ app.post('/api/generate-special', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'A valid price is required for the special item' });
         }
 
-        // Check if this item already exists in the regular menu
-        const existingItem = await db.get(
-            "SELECT * FROM menu WHERE LOWER(name) = LOWER(?) AND isSpecial = 0",
-            [name.trim()]
-        );
+        const existingItem = await Menu.findOne({
+            name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+            isSpecial: false
+        }).lean();
 
-        // Determine the final image URL: use provided one, fall back to existing menu item's image
         let finalImageUrl = '';
         if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
             finalImageUrl = imageUrl.trim();
@@ -901,28 +707,27 @@ app.post('/api/generate-special', requireAdmin, async (req, res) => {
 
         const specialObj = { text: name.trim(), imageUrl: finalImageUrl };
 
-        await db.run('BEGIN TRANSACTION');
-        try {
-            // Remove any previously marked special items from the menu
-            await db.run("DELETE FROM menu WHERE isSpecial = 1");
+        await Menu.deleteMany({ isSpecial: true });
 
-            // Insert the new special as a real menu item so customers can order it
-            const result = await db.run(
-                "INSERT INTO menu (name, price, category, type, imageUrl, isSpecial, timeHash) VALUES (?, ?, ?, ?, ?, 1, ?)",
-                [name.trim(), parsedPrice, "TODAY'S SPECIAL", type || (existingItem?.type || 'veg'), finalImageUrl, Date.now()]
-            );
+        const maxItem = await Menu.findOne().sort({ id: -1 }).lean();
+        const nextId = maxItem && maxItem.id ? maxItem.id + 1 : 1;
 
-            // Also save to settings so the banner can show it
-            await db.run(
-                "INSERT OR REPLACE INTO settings (key, value) VALUES ('daily_special', ?)",
-                [JSON.stringify({ ...specialObj, menuId: result.lastID })]
-            );
+        const newSpecial = await Menu.create({
+            id: nextId,
+            name: name.trim(),
+            price: parsedPrice,
+            category: "TODAY'S SPECIAL",
+            type: type || (existingItem?.type || 'veg'),
+            imageUrl: finalImageUrl,
+            isSpecial: true,
+            timeHash: Date.now()
+        });
 
-            await db.run('COMMIT');
-        } catch (e) {
-            await db.run('ROLLBACK');
-            throw e;
-        }
+        await Setting.updateOne(
+            { key: 'daily_special' },
+            { key: 'daily_special', value: JSON.stringify({ ...specialObj, menuId: newSpecial.id }) },
+            { upsert: true }
+        );
 
         res.json(specialObj);
     } catch (e) {
@@ -930,25 +735,16 @@ app.post('/api/generate-special', requireAdmin, async (req, res) => {
     }
 });
 
-// Remove daily special
 app.delete('/api/daily-special', requireAdmin, async (req, res) => {
     try {
-        await db.run('BEGIN TRANSACTION');
-        try {
-            await db.run("DELETE FROM menu WHERE isSpecial = 1");
-            await db.run("DELETE FROM settings WHERE key = 'daily_special'");
-            await db.run('COMMIT');
-            res.json({ success: true });
-        } catch (e) {
-            await db.run('ROLLBACK');
-            throw e;
-        }
+        await Menu.deleteMany({ isSpecial: true });
+        await Setting.deleteOne({ key: 'daily_special' });
+        res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-// Search images using TheMealDB (Free, no API key required!)
 app.get('/api/images/search', requireAdmin, async (req, res) => {
     try {
         const { query } = req.query;
@@ -956,7 +752,6 @@ app.get('/api/images/search', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Search query is required' });
         }
         
-        // Using TheMealDB which is 100% free and requires no API key!
         const url = `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(query)}`;
         const response = await fetch(url);
         
@@ -983,37 +778,29 @@ app.get('/api/images/search', requireAdmin, async (req, res) => {
     }
 });
 
-// --- LIVE SQL PRESENTATION VIEWER ---
-// Development/presentation endpoint ΓÇö ensure this is removed or protected in production
+// Presentation data endpoint
 app.get('/api/sql-dump', async (req, res) => {
     try {
-        const orders = await db.all("SELECT * FROM orders ORDER BY id DESC");
-        const order_items = await db.all("SELECT * FROM order_items ORDER BY id DESC");
-        const customers = await db.all("SELECT * FROM customers ORDER BY id DESC");
-        const menu = await db.all("SELECT * FROM menu ORDER BY id DESC");
-        const owners = await db.all("SELECT * FROM owners ORDER BY id DESC");
-        const settings = await db.all("SELECT * FROM settings");
-        const daily_summaries = await db.all("SELECT * FROM daily_summaries ORDER BY id DESC");
-        res.json({ orders, order_items, customers, menu, owners, settings, daily_summaries });
+        const orders = await Order.find().sort({ id: -1 }).lean();
+        const menu = await Menu.find().sort({ id: -1 }).lean();
+        const owners = await Owner.find().lean();
+        const settings = await Setting.find().lean();
+        const daily_summaries = await DailySummary.find().sort({ id: -1 }).lean();
+        const customers = await Customer.find().lean();
+        res.json({ orders, menu, owners, settings, daily_summaries, customers });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-// Development/presentation endpoint ΓÇö ensure this is removed or protected in production
-app.get('/sql-viewer', (req, res) => {
-    res.sendFile(path.join(__dirname, 'sql-viewer.html'));
-});
 // ------------------------------------
 
 const PORT = process.env.PORT || 3000;
-setupDb().then(async () => {
-    await runMigrations();
-    // Auto-seed menu every time the server starts
-    await seedMenu();
-    const isMongoConnected = await connectMongoDB();
-    if (isMongoConnected) {
+connectMongoDB().then(async (isConnected) => {
+    if (isConnected) {
         await seedMongoDB(initialMenu);
+    } else {
+        console.warn('⚠️ Server started without active MongoDB connection.');
     }
     app.listen(PORT, () => console.log(`Backend API live on http://localhost:${PORT}`));
 });
