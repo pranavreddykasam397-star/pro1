@@ -10,7 +10,9 @@ import { Pool } from 'pg';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString =
+  process.env.DATABASE_URL ||
+  'postgresql://heritage_user:IAF16WoGaEeEUE8KXTDNxBmJflrZbRzS@dpg-dbe73fnavr4c739t2in0-a.oregon-postgres.render.com/heritage_db_46bw?sslmode=require';
 const isRemotePostgres = Boolean(
   connectionString &&
   !connectionString.includes('localhost') &&

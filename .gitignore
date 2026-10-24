@@ -6,8 +6,12 @@ backend/node_modules/
 dist/
 
 # Environment variables (SENSITIVE - never commit)
+.env*
 .env
 backend/.env
+.next/
+*.tsbuildinfo
+next-env.d.ts
 
 # Database files
 backend/database.sqlite
