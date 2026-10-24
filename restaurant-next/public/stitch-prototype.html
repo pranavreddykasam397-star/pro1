@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heritage Indian Cuisine — Stitch Canvas Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gold: '#b8922a',
+            'gold-light': '#d4a843',
+            ink: '#1a1610',
+            'ink-soft': '#3d3427',
+            cream: '#faf7f0',
+            'cream-deep': '#f2ece0',
+            parchment: '#e8dcc8',
+          },
+          fontFamily: {
+            serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+            sans: ['"Jost"', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-cream text-ink font-sans min-h-screen selection:bg-gold selection:text-white">
+
+  <!-- Navigation Bar -->
+  <header class="sticky top-0 z-40 bg-cream/90 backdrop-blur-md border-b border-parchment px-4 sm:px-8 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full border border-gold/40 flex items-center justify-center bg-cream-deep text-gold text-lg shadow-sm">
+        🍴
+      </div>
+      <div>
+        <h1 class="font-serif text-2xl font-bold tracking-tight text-ink leading-none">Heritage</h1>
+        <p class="text-[9px] uppercase tracking-widest text-gold font-bold">Indian Cuisine</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 sm:gap-3">
+      <button class="px-3.5 py-1.5 rounded-full border border-parchment hover:border-gold/60 text-xs font-medium text-ink-soft bg-white/70 shadow-sm transition">
+        ⏱️ Track Orders
+      </button>
+      <button class="px-3.5 py-1.5 rounded-full border border-parchment hover:border-gold/60 text-xs font-medium text-ink-soft bg-white/70 shadow-sm transition">
+        🛡️ Admin Portal
+      </button>
+      <button class="px-4 py-1.5 rounded-full bg-gold hover:bg-gold-light text-white text-xs font-semibold shadow-md flex items-center gap-1.5 transition">
+        <span>🛒</span> Dining Cart (0)
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero Banner -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-8 py-12 text-center">
+    <span class="inline-block px-3 py-1 rounded-full bg-gold/15 text-gold text-xs font-bold uppercase tracking-widest mb-3">
+      Royal Culinary Legacy
+    </span>
+    <h2 class="font-serif text-4xl sm:text-5xl font-bold text-ink max-w-2xl mx-auto leading-tight">
+      Savor Authentic Flavors of Royal India
+    </h2>
+    <p class="text-sm sm:text-base text-ink-soft max-w-xl mx-auto mt-3">
+      Centuries-old recipes prepared with artisanal hand-ground spices and slow flame charcoal dum techniques.
+    </p>
+    <div class="mt-6 flex justify-center gap-4">
+      <a href="#menu" class="px-7 py-3 rounded-xl bg-gold hover:bg-gold-light text-white text-sm font-semibold shadow-md transition transform hover:-translate-y-0.5">
+        Explore Menu
+      </a>
+      <button class="px-7 py-3 rounded-xl border border-gold/50 text-ink text-sm font-semibold hover:bg-cream-deep transition">
+        Play for Discounts
+      </button>
+    </div>
+  </section>
+
+  <!-- Dietary & Category Filter Section -->
+  <section id="menu" class="max-w-7xl mx-auto px-4 sm:px-8 pt-4 pb-16">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-parchment pb-6 mb-8">
+      <!-- Dietary Pills -->
+      <div class="flex items-center gap-2">
+        <button class="px-4 py-2 rounded-full bg-ink text-white text-xs font-semibold shadow-sm">
+          All Dishes
+        </button>
+        <button class="px-4 py-2 rounded-full border border-emerald-600/40 text-emerald-800 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-600"></span> Pure Vegetarian
+        </button>
+        <button class="px-4 py-2 rounded-full border border-rose-600/40 text-rose-800 text-xs font-semibold bg-rose-50 hover:bg-rose-100 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-rose-600"></span> Non-Vegetarian
+        </button>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full text-xs">
+        <button class="px-3 py-1.5 rounded-lg bg-gold text-white font-medium">All</button>
+        <button class="px-3 py-1.5 rounded-lg bg-cream-deep hover:bg-parchment text-ink-soft">CURRIES</button>
+        <button class="px-3 py-1.5 rounded-lg bg-cream-deep hover:bg-parchment text-ink-soft">STARTERS</button>
+        <button class="px-3 py-1.5 rounded-lg bg-cream-deep hover:bg-parchment text-ink-soft">BIRYANI</button>
+        <button class="px-3 py-1.5 rounded-lg bg-cream-deep hover:bg-parchment text-ink-soft">BREADS</button>
+        <button class="px-3 py-1.5 rounded-lg bg-cream-deep hover:bg-parchment text-ink-soft">DESSERTS</button>
+      </div>
+    </div>
+
+    <!-- Menu Cards Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+
+      <!-- Dish 1 -->
+      <div class="bg-white rounded-2xl border border-parchment overflow-hidden shadow-sm hover:shadow-md transition flex flex-col group">
+        <div class="relative h-48 overflow-hidden bg-cream-deep">
+          <img src="https://farm8.staticflickr.com/7161/6707502479_0c4744e812_b.jpg" alt="Paneer Butter Masala" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+          <span class="absolute top-3 left-3 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+            Veg
+          </span>
+          <span class="absolute top-3 right-3 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-gold text-white shadow-sm">
+            Chef's Special
+          </span>
+        </div>
+        <div class="p-4 flex-1 flex flex-col justify-between">
+          <div>
+            <span class="text-[10px] uppercase tracking-wider text-gold font-semibold">CURRIES</span>
+            <h3 class="font-serif text-lg font-bold text-ink leading-tight">Paneer Butter Masala Curry</h3>
+            <p class="text-xs text-ink-soft mt-1 line-clamp-2">Cottage cheese cubes simmered in velvety tomato cream gravy with aromatic kasuri methi.</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-parchment/60 flex items-center justify-between">
+            <span class="font-serif text-xl font-bold text-ink">₹300</span>
+            <button class="px-3.5 py-1.5 rounded-lg bg-gold hover:bg-gold-light text-white text-xs font-semibold shadow-sm transition">
+              + Add
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dish 2 -->
+      <div class="bg-white rounded-2xl border border-parchment overflow-hidden shadow-sm hover:shadow-md transition flex flex-col group">
+        <div class="relative h-48 overflow-hidden bg-cream-deep">
+          <img src="https://shwetainthekitchen.com/wp-content/uploads/2023/03/mixed-vegetable-curry.jpg" alt="Mixed Veg" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+          <span class="absolute top-3 left-3 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+            Veg
+          </span>
+        </div>
+        <div class="p-4 flex-1 flex flex-col justify-between">
+          <div>
+            <span class="text-[10px] uppercase tracking-wider text-gold font-semibold">CURRIES</span>
+            <h3 class="font-serif text-lg font-bold text-ink leading-tight">Mixed Veg Curry</h3>
+            <p class="text-xs text-ink-soft mt-1 line-clamp-2">Fresh garden vegetables sautéed with royal onion-ginger masala and aromatic spices.</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-parchment/60 flex items-center justify-between">
+            <span class="font-serif text-xl font-bold text-ink">₹240</span>
+            <button class="px-3.5 py-1.5 rounded-lg bg-gold hover:bg-gold-light text-white text-xs font-semibold shadow-sm transition">
+              + Add
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dish 3 -->
+      <div class="bg-white rounded-2xl border border-parchment overflow-hidden shadow-sm hover:shadow-md transition flex flex-col group">
+        <div class="relative h-48 overflow-hidden bg-cream-deep">
+          <img src="https://www.cookwithmanali.com/wp-content/uploads/2014/08/Dal-Tadka-500x500.jpg" alt="Dal Tadka" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+          <span class="absolute top-3 left-3 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+            Veg
+          </span>
+        </div>
+        <div class="p-4 flex-1 flex flex-col justify-between">
+          <div>
+            <span class="text-[10px] uppercase tracking-wider text-gold font-semibold">CURRIES</span>
+            <h3 class="font-serif text-lg font-bold text-ink leading-tight">Dal Tadaka</h3>
+            <p class="text-xs text-ink-soft mt-1 line-clamp-2">Yellow lentils tempered with ghee, cumin seeds, garlic, and dried Kashmiri chillies.</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-parchment/60 flex items-center justify-between">
+            <span class="font-serif text-xl font-bold text-ink">₹200</span>
+            <button class="px-3.5 py-1.5 rounded-lg bg-gold hover:bg-gold-light text-white text-xs font-semibold shadow-sm transition">
+              + Add
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dish 4 -->
+      <div class="bg-white rounded-2xl border border-parchment overflow-hidden shadow-sm hover:shadow-md transition flex flex-col group">
+        <div class="relative h-48 overflow-hidden bg-cream-deep">
+          <img src="https://i0.wp.com/debzdelicious.com/wp-content/uploads/punjabi-palak-paneer-restaurant-style-recipe-1.jpg?w=760&ssl=1" alt="Palak Paneer" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+          <span class="absolute top-3 left-3 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+            Veg
+          </span>
+        </div>
+        <div class="p-4 flex-1 flex flex-col justify-between">
+          <div>
+            <span class="text-[10px] uppercase tracking-wider text-gold font-semibold">CURRIES</span>
+            <h3 class="font-serif text-lg font-bold text-ink leading-tight">Palak Paneer</h3>
+            <p class="text-xs text-ink-soft mt-1 line-clamp-2">Fresh paneer cubes blended into a puree of slow-blanched spinach and fragrant spices.</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-parchment/60 flex items-center justify-between">
+            <span class="font-serif text-xl font-bold text-ink">₹280</span>
+            <button class="px-3.5 py-1.5 rounded-lg bg-gold hover:bg-gold-light text-white text-xs font-semibold shadow-sm transition">
+              + Add
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-parchment bg-cream-deep/60 py-8 text-center text-xs text-ink-soft">
+    <p class="font-serif text-base font-bold text-ink">Heritage Restaurant</p>
+    <p class="mt-1">Fine Indian Cuisine & Royal Dining Experience</p>
+    <p class="mt-3 text-[10px] text-ink-soft/70">UPI Payments Accepted via 9392767835@ybl</p>
+  </footer>
+
+</body>
+</html>

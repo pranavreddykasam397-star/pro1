@@ -113,7 +113,14 @@ async function seedMongoDB(initialMenu = []) {
                 isSpecial: item.isSpecial ? true : false,
                 timeHash: Date.now()
             }));
-            await Menu.insertMany(docs);
+            const bulkOps = docs.map(doc => ({
+                updateOne: {
+                    filter: { name: doc.name },
+                    update: { $setOnInsert: doc },
+                    upsert: true
+                }
+            }));
+            await Menu.bulkWrite(bulkOps);
             console.log(`🍃 MongoDB seeded with ${docs.length} menu items!`);
         }
 
