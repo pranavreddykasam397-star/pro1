@@ -27,6 +27,8 @@ import {
   Lock,
   ArrowRight,
   Upload,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 export interface CartItem {
@@ -66,6 +68,7 @@ export function CartSidebar({
   // Customer Auth State
   const [customerIdInput, setCustomerIdInput] = useState('');
   const [pinInput, setPinInput] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [phoneInput, setPhoneInput] = useState('');
   const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [authenticatedCustomer, setAuthenticatedCustomer] = useState<{
@@ -369,15 +372,25 @@ export function CartSidebar({
                   <Label htmlFor="pin" className="text-xs font-semibold">
                     4-Digit PIN
                   </Label>
-                  <Input
-                    id="pin"
-                    type="password"
-                    maxLength={4}
-                    placeholder="••••"
-                    value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value)}
-                    className="bg-white text-sm text-center tracking-widest font-bold"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="pin"
+                      type={showPin ? 'text' : 'password'}
+                      maxLength={4}
+                      placeholder="••••"
+                      value={pinInput}
+                      onChange={(e) => setPinInput(e.target.value)}
+                      className="bg-white text-sm text-center tracking-widest font-bold pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink transition-colors cursor-pointer p-1"
+                      aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+                    >
+                      {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -386,15 +399,25 @@ export function CartSidebar({
                   <Label htmlFor="newPin" className="text-xs font-semibold">
                     Create 4-Digit PIN
                   </Label>
-                  <Input
-                    id="newPin"
-                    type="password"
-                    maxLength={4}
-                    placeholder="••••"
-                    value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value)}
-                    className="bg-white text-sm text-center tracking-widest font-bold"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="newPin"
+                      type={showPin ? 'text' : 'password'}
+                      maxLength={4}
+                      placeholder="••••"
+                      value={pinInput}
+                      onChange={(e) => setPinInput(e.target.value)}
+                      className="bg-white text-sm text-center tracking-widest font-bold pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink transition-colors cursor-pointer p-1"
+                      aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+                    >
+                      {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                   <p className="text-[11px] text-ink-soft">
                     You will receive an auto-generated Customer ID to use with this PIN.
                   </p>

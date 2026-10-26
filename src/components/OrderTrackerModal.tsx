@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { Clock, CheckCircle2, AlertCircle, ShoppingBag } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, ShoppingBag, Eye, EyeOff } from 'lucide-react';
 
 interface OrderTrackerModalProps {
   isOpen: boolean;
@@ -22,6 +22,7 @@ interface OrderTrackerModalProps {
 }
 
 export function OrderTrackerModal({ isOpen, onClose }: OrderTrackerModalProps) {
+  const [showPin, setShowPin] = useState(false);
   const [customerIdInput, setCustomerIdInput] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('customerAuth');
@@ -133,15 +134,25 @@ export function OrderTrackerModal({ isOpen, onClose }: OrderTrackerModalProps) {
             <Label htmlFor="trackerPin" className="text-xs font-semibold">
               4-Digit PIN
             </Label>
-            <Input
-              id="trackerPin"
-              type="password"
-              maxLength={4}
-              placeholder="••••"
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value)}
-              className="bg-white text-sm text-center tracking-widest font-bold"
-            />
+            <div className="relative">
+              <Input
+                id="trackerPin"
+                type={showPin ? 'text' : 'password'}
+                maxLength={4}
+                placeholder="••••"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                className="bg-white text-sm text-center tracking-widest font-bold pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPin(!showPin)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink transition-colors cursor-pointer p-1"
+                aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+              >
+                {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </div>
 

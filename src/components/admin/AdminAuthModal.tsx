@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { Shield, KeyRound, Smartphone, Lock, ArrowRight, Sparkles } from 'lucide-react';
+import { Shield, KeyRound, Smartphone, Lock, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
 
 interface AdminAuthModalProps {
   onAuthenticated: () => void;
@@ -17,6 +17,7 @@ export function AdminAuthModal({ onAuthenticated }: AdminAuthModalProps) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
 
@@ -156,15 +157,25 @@ export function AdminAuthModal({ onAuthenticated }: AdminAuthModalProps) {
                 <Label htmlFor="adminPassword" className="text-xs font-semibold text-ink">
                   Password
                 </Label>
-                <Input
-                  id="adminPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="bg-cream-deep/40 text-sm"
-                />
+                <div className="relative">
+                  <Input
+                    id="adminPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="bg-cream-deep/40 text-sm pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink transition-colors cursor-pointer p-1"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <Button
@@ -249,15 +260,25 @@ export function AdminAuthModal({ onAuthenticated }: AdminAuthModalProps) {
                 <Label htmlFor="signupPassword" className="text-xs font-semibold text-ink">
                   Create Password (Min 6 Characters)
                 </Label>
-                <Input
-                  id="signupPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="bg-cream-deep/40 text-sm"
-                />
+                <div className="relative">
+                  <Input
+                    id="signupPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="bg-cream-deep/40 text-sm pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink transition-colors cursor-pointer p-1"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <Button
