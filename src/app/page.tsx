@@ -83,6 +83,18 @@ export default function StorefrontPage() {
     [allDishes]
   );
 
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allDishes.forEach((dish) => {
+      const isVeg = dish.type === 'veg';
+      const isNonVeg = dish.type === 'non-veg' || dish.type === 'nonveg';
+      if (dietaryFilter === 'veg' && !isVeg) return;
+      if (dietaryFilter === 'non-veg' && !isNonVeg) return;
+      counts[dish.category] = (counts[dish.category] || 0) + 1;
+    });
+    return counts;
+  }, [allDishes, dietaryFilter]);
+
   // Step 1: Customer clicks "Explore Our Menu ↓"
   const handleExploreClick = () => {
     setIsPreferenceRevealed(true);
@@ -336,6 +348,7 @@ export default function StorefrontPage() {
               onSelectCategory={handleSelectCategory}
               dietaryFilter={dietaryFilter}
               onSelectDietaryFilter={handleSelectDietaryFilter}
+              categoryCounts={categoryCounts}
             />
 
             {/* Menu Grid with 3D Staggered Cascade */}

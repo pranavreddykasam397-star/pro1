@@ -9,6 +9,7 @@ interface CategoryFilterProps {
   dietaryFilter: 'all' | 'veg' | 'non-veg';
   onSelectDietaryFilter: (diet: 'all' | 'veg' | 'non-veg') => void;
   onResetPreference?: () => void;
+  categoryCounts?: Record<string, number>;
 }
 
 // Visual category icons for an authentic Indian dining touch
@@ -30,6 +31,7 @@ export function CategoryFilter({
   dietaryFilter,
   onSelectDietaryFilter,
   onResetPreference,
+  categoryCounts,
 }: CategoryFilterProps) {
   return (
     <div className="space-y-5 py-4">
@@ -113,15 +115,18 @@ export function CategoryFilter({
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none px-1 justify-start sm:justify-center">
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat;
+            const count = categoryCounts ? categoryCounts[cat] ?? 0 : null;
             const icon = CATEGORY_ICONS[cat.toUpperCase()] || '🍲';
             return (
               <button
                 key={cat}
                 type="button"
                 onClick={() => onSelectCategory(cat)}
-                className={`group px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-300 flex items-center gap-2 cursor-pointer ${
+                className={`group px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-300 flex items-center gap-2 cursor-pointer ${
                   isSelected
                     ? 'bg-gold text-white shadow-md scale-105 ring-2 ring-gold/40'
+                    : count === 0
+                    ? 'bg-white/60 text-ink-soft/40 border border-parchment/60'
                     : 'bg-white hover:bg-cream-deep text-ink-soft border border-parchment hover:border-gold/40 shadow-xs'
                 }`}
               >
@@ -129,6 +134,19 @@ export function CategoryFilter({
                   {icon}
                 </span>
                 <span>{cat}</span>
+                {count !== null && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                      isSelected
+                        ? 'bg-white/20 text-white'
+                        : count === 0
+                        ? 'bg-gray-100 text-gray-400'
+                        : 'bg-cream-deep text-ink-soft'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
               </button>
             );
           })}
