@@ -25,7 +25,9 @@ export function DiscountMiniGame({ onWin, onClose }: DiscountMiniGameProps) {
   const targetClicks = 50;
   const [timeLeft, setTimeLeft] = useState(10);
   const [clickerStarted, setClickerStarted] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const endTimeRef = useRef<number | null>(null);
+  const clicksRef = useRef(0);
+  clicksRef.current = clicks;
 
   // Switch Click Handler
   const handleSwitchToggle = (index: number) => {
@@ -47,25 +49,37 @@ export function DiscountMiniGame({ onWin, onClose }: DiscountMiniGameProps) {
     }
   };
 
-  // Clicker Timer Handler
+  // Clicker Timer Handler - Wall-clock based, immune to click re-renders
   useEffect(() => {
-    if (phase === 'clicker' && clickerStarted && timeLeft > 0) {
-      timerRef.current = setTimeout(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (phase === 'clicker' && clickerStarted && timeLeft === 0) {
-      if (clicks >= targetClicks) {
-        setPhase('won');
-        onWin(50); // ₹50 flat discount
-      } else {
-        setPhase('lost');
+    if (phase !== 'clicker' || !clickerStarted) return;
+
+    // Start 10-second countdown based on actual timestamp
+    const durationMs = 10000;
+    endTimeRef.current = Date.now() + durationMs;
+
+    const interval = setInterval(() => {
+      if (!endTimeRef.current) return;
+      const remainingMs = endTimeRef.current - Date.now();
+      const secondsLeft = Math.max(0, Math.ceil(remainingMs / 1000));
+
+      setTimeLeft(secondsLeft);
+
+      if (remainingMs <= 0) {
+        clearInterval(interval);
+        endTimeRef.current = null;
+        if (clicksRef.current >= targetClicks) {
+          setPhase('won');
+          onWin(50); // ₹50 flat discount
+        } else {
+          setPhase('lost');
+        }
       }
-    }
+    }, 100);
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      clearInterval(interval);
     };
-  }, [phase, clickerStarted, timeLeft, clicks, targetClicks, onWin]);
+  }, [phase, clickerStarted, targetClicks, onWin]);
 
   // Clicker Tap Handler
   const handleTap = () => {
@@ -79,7 +93,7 @@ export function DiscountMiniGame({ onWin, onClose }: DiscountMiniGameProps) {
     setClicks(nextClicks);
 
     if (nextClicks >= targetClicks) {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      endTimeRef.current = null;
       setPhase('won');
       onWin(50); // ₹50 discount unlocked
     }
@@ -93,6 +107,7 @@ export function DiscountMiniGame({ onWin, onClose }: DiscountMiniGameProps) {
     setClicks(0);
     setTimeLeft(10);
     setClickerStarted(false);
+    endTimeRef.current = null;
   };
 
   return (
