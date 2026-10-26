@@ -85,9 +85,6 @@ export default function StorefrontPage() {
   // Step 1: Customer clicks "Explore Our Menu ↓"
   const handleExploreClick = () => {
     setIsPreferenceRevealed(true);
-    setTimeout(() => {
-      window.scrollBy({ top: 260, behavior: 'smooth' });
-    }, 120);
   };
 
   // Step 2: Customer selects either "Pure Veg" or "Non-Veg"

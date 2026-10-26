@@ -44,33 +44,33 @@ function ThreeDTiltCard({
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
 
-    const rotateX = ((y - centerY) / centerY) * -12; // tilt angle X
-    const rotateY = ((x - centerX) / centerX) * 12; // tilt angle Y
+    const rotateX = ((y - centerY) / centerY) * -6; // subtle tilt angle X
+    const rotateY = ((x - centerX) / centerX) * 6; // subtle tilt angle Y
 
     setTiltStyle({
-      transform: `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateZ(16px)`,
+      transform: `perspective(800px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-4px)`,
       transition: 'transform 0.1s ease-out',
     });
 
     setSheen({
       x: (x / rect.width) * 100,
       y: (y / rect.height) * 100,
-      opacity: 0.6,
+      opacity: 0.45,
     });
   };
 
   const handleMouseLeave = () => {
     setTiltStyle({
-      transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px)',
-      transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+      transform: 'perspective(800px) rotateX(0deg) rotateY(0deg) translateY(0px)',
+      transition: 'transform 0.4s ease-out',
     });
     setSheen((prev) => ({ ...prev, opacity: 0 }));
   };
 
   const glowShadow =
     glowColor === 'emerald'
-      ? 'hover:shadow-[0_20px_50px_-10px_rgba(16,185,129,0.25)] border-emerald-500/40'
-      : 'hover:shadow-[0_20px_50px_-10px_rgba(225,29,72,0.25)] border-rose-500/40';
+      ? 'hover:shadow-[0_20px_50px_-10px_rgba(16,185,129,0.25)] border-emerald-500/40 hover:border-emerald-600'
+      : 'hover:shadow-[0_20px_50px_-10px_rgba(225,29,72,0.25)] border-rose-500/40 hover:border-rose-600';
 
   return (
     <div
@@ -79,13 +79,13 @@ function ThreeDTiltCard({
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={tiltStyle}
-      className={`group relative p-6 sm:p-7 rounded-3xl border-2 transition-all duration-300 text-left flex flex-col justify-between bg-white/80 backdrop-blur-xl shadow-md cursor-pointer select-none overflow-hidden preserve-3d ${glowShadow}`}
+      className={`group relative p-6 sm:p-7 rounded-3xl border-2 text-left flex flex-col justify-between bg-white backdrop-blur-xl shadow-lg hover:shadow-2xl cursor-pointer select-none overflow-hidden ${glowShadow}`}
     >
       {/* 3D Glass Light Reflection Sheen */}
       <div
-        className="pointer-events-none absolute inset-0 z-30 transition-opacity duration-300"
+        className="pointer-events-none absolute inset-0 z-20 transition-opacity duration-300"
         style={{
-          background: `radial-gradient(circle at ${sheen.x}% ${sheen.y}%, rgba(255, 255, 255, 0.65) 0%, transparent 60%)`,
+          background: `radial-gradient(circle at ${sheen.x}% ${sheen.y}%, rgba(255, 255, 255, 0.7) 0%, transparent 60%)`,
           opacity: sheen.opacity,
         }}
       />
@@ -107,44 +107,45 @@ export function Hero({
   const vegCardRef = useRef<HTMLDivElement>(null);
   const nonVegCardRef = useRef<HTMLDivElement>(null);
 
-  // Trigger 3D Physics Unfolding on isExpanded
+  // Reveal Preference Boxes on isExpanded
   useEffect(() => {
     if (isExpanded && boxesContainerRef.current) {
       const cards = [vegCardRef.current, nonVegCardRef.current].filter(Boolean);
 
-      // 3D Emergence Timeline
+      // Smooth entrance for container
       gsap.fromTo(
         boxesContainerRef.current,
-        { opacity: 0, y: -25 },
-        { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }
       );
 
+      // Both cards animate simultaneously and remain 100% visible
       gsap.fromTo(
         cards,
         {
           opacity: 0,
-          scale: 0.45,
-          rotationX: 80,
-          y: -80,
-          z: -140,
-          transformPerspective: 1200,
-          transformOrigin: 'center top',
+          scale: 0.96,
+          y: 20,
         },
         {
           opacity: 1,
           scale: 1,
-          rotationX: 0,
           y: 0,
-          z: 0,
-          duration: 1.15,
-          stagger: 0.22,
-          ease: 'back.out(1.7)',
+          duration: 0.4,
+          stagger: 0.06,
+          ease: 'power2.out',
+          clearProps: 'all',
         }
       );
+
+      // Smooth scroll so both cards are immediately centered and fully in view
+      setTimeout(() => {
+        boxesContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
     }
   }, [isExpanded]);
 
-  // Interactive 3D Button Click
+  // Interactive Button Click
   const handleButtonClick = () => {
     if (btnRef.current) {
       gsap.to(btnRef.current, {
@@ -162,11 +163,11 @@ export function Hero({
   };
 
   return (
-    <section className="relative min-h-[calc(100vh-76px)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 text-center overflow-hidden bg-gradient-to-b from-cream via-cream-deep/40 to-cream border-b border-parchment/60 perspective-1200">
+    <section className="relative min-h-[calc(100vh-76px)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 text-center overflow-hidden bg-gradient-to-b from-cream via-cream-deep/40 to-cream border-b border-parchment/60">
       {/* Ambient Lighting Ornaments */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-gold/5 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="max-w-3xl mx-auto space-y-6 relative z-10 w-full">
+      <div className="max-w-4xl mx-auto space-y-6 relative z-10 w-full">
         {/* Established Crest Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-gold/40 bg-gold/10 text-gold text-xs font-semibold tracking-widest uppercase shadow-xs">
           <Sparkles className="w-3.5 h-3.5" /> Est. Since Always
@@ -185,7 +186,7 @@ export function Hero({
           Fine Indian Cuisine · Crafted with Tradition, Royal Spices & Authentic Recipes
         </p>
 
-        {/* 3D Action Button with Shimmer Sweep */}
+        {/* Action Button with Shimmer Sweep */}
         <div className="pt-2">
           <button
             ref={btnRef}
@@ -200,11 +201,11 @@ export function Hero({
           </button>
         </div>
 
-        {/* 3D Emergent Preference Boxes (Veg / Non-Veg) */}
+        {/* Emergent Preference Boxes (Veg / Non-Veg) */}
         {isExpanded && (
           <div
             ref={boxesContainerRef}
-            className="pt-10 w-full max-w-2xl mx-auto perspective-1200"
+            className="pt-8 w-full max-w-3xl mx-auto"
           >
             <div className="text-center mb-5">
               <span className="text-xs font-bold uppercase tracking-widest text-gold font-sans">
@@ -216,7 +217,7 @@ export function Hero({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-left">
-              {/* 3D Pure Vegetarian Box */}
+              {/* Pure Vegetarian Box */}
               <ThreeDTiltCard
                 cardRef={vegCardRef}
                 onClick={() => onSelectPreference('veg')}
