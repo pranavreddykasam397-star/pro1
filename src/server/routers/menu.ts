@@ -22,13 +22,17 @@ export const menuRouter = router({
         .orderBy(desc(menuItems.id));
 
       if (allItems && allItems.length > 0) {
-        const dailySpecial = allItems.find((item) => item.isSpecial) || null;
+        const normalizedItems = allItems.map((item) => ({
+          ...item,
+          type: item.type === 'nonveg' ? 'non-veg' : item.type,
+        }));
+        const dailySpecial = normalizedItems.find((item) => item.isSpecial) || null;
         const categories = [
-          ...new Set(allItems.map((item) => item.category).filter(Boolean)),
+          ...new Set(normalizedItems.map((item) => item.category).filter(Boolean)),
         ];
 
         return {
-          menu: allItems,
+          menu: normalizedItems,
           dailySpecial,
           categories,
         };
@@ -45,17 +49,20 @@ export const menuRouter = router({
       if (fs.existsSync(jsonPath)) {
         const raw = fs.readFileSync(jsonPath, 'utf-8');
         const items = JSON.parse(raw);
-        const mapped = items.map((m: any, idx: number) => ({
-          id: m.id || idx + 1,
-          name: m.name,
-          price: Number(m.price) || 0,
-          category: m.category || 'CURRIES',
-          type: (m.type || 'veg').toLowerCase(),
-          imageUrl: m.imageUrl || null,
-          isSpecial: Boolean(m.isSpecial),
-          timeHash: String(m.timeHash || Date.now()),
-          createdAt: new Date(),
-        }));
+        const mapped = items.map((m: any, idx: number) => {
+          const rawType = (m.type || 'veg').toLowerCase();
+          return {
+            id: m.id || idx + 1,
+            name: m.name,
+            price: Number(m.price) || 0,
+            category: m.category || 'CURRIES',
+            type: rawType === 'nonveg' ? 'non-veg' : rawType,
+            imageUrl: m.imageUrl || null,
+            isSpecial: Boolean(m.isSpecial),
+            timeHash: String(m.timeHash || Date.now()),
+            createdAt: new Date(),
+          };
+        });
         const dailySpecial = mapped.find((item: any) => item.isSpecial) || null;
         const categories = [
           ...new Set(mapped.map((item: any) => item.category).filter(Boolean)),

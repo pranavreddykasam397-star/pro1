@@ -78,7 +78,8 @@ export default function StorefrontPage() {
     [allDishes]
   );
   const nonVegCount = useMemo(
-    () => allDishes.filter((d) => d.type === 'non-veg').length,
+    () =>
+      allDishes.filter((d) => d.type === 'non-veg' || d.type === 'nonveg').length,
     [allDishes]
   );
 
@@ -227,9 +228,12 @@ export default function StorefrontPage() {
 
   const filteredDishes = useMemo(() => {
     return allDishes.filter((dish) => {
+      const isVeg = dish.type === 'veg';
+      const isNonVeg = dish.type === 'non-veg' || dish.type === 'nonveg';
+
       // Dietary filter
-      if (dietaryFilter === 'veg' && dish.type !== 'veg') return false;
-      if (dietaryFilter === 'non-veg' && dish.type !== 'non-veg') return false;
+      if (dietaryFilter === 'veg' && !isVeg) return false;
+      if (dietaryFilter === 'non-veg' && !isNonVeg) return false;
 
       // Category filter
       if (selectedCategory && dish.category !== selectedCategory) return false;
@@ -243,7 +247,10 @@ export default function StorefrontPage() {
   // Determine if daily special matches current dietary filter
   const isSpecialVisible =
     dailySpecial &&
-    (dietaryFilter === 'all' || dailySpecial.type === dietaryFilter);
+    (dietaryFilter === 'all' ||
+      (dietaryFilter === 'veg' && dailySpecial.type === 'veg') ||
+      (dietaryFilter === 'non-veg' &&
+        (dailySpecial.type === 'non-veg' || dailySpecial.type === 'nonveg')));
 
   return (
     <div className="min-h-screen flex flex-col bg-cream text-ink">
