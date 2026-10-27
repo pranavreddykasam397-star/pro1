@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { AnimatedButton } from '@/components/ui/animated-button';
+import { HeritageDiya3D } from '@/components/HeritageDiya3D';
 import { ArrowDown, Sparkles, ArrowRight } from 'lucide-react';
 import gsap from 'gsap';
 
@@ -168,7 +169,12 @@ export function Hero({
       {/* Ambient Lighting Ornaments */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-gold/5 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="max-w-4xl mx-auto space-y-6 relative z-10 w-full">
+      <div className="max-w-4xl mx-auto space-y-4 relative z-10 w-full">
+        {/* 3D Interactive Floating Brass Diya */}
+        <div className="flex justify-center -mb-3 pt-2">
+          <HeritageDiya3D size={210} className="drop-shadow-2xl" />
+        </div>
+
         {/* Established Crest Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-gold/40 bg-gold/10 text-gold text-xs font-semibold tracking-widest uppercase shadow-xs">
           <Sparkles className="w-3.5 h-3.5" /> Est. Since Always
