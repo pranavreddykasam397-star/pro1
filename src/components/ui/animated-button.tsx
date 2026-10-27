@@ -170,7 +170,7 @@ export const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButton
     let variantClasses = '';
     if (variant === 'heritage-primary') {
       variantClasses =
-        'relative overflow-hidden font-semibold text-white bg-gradient-to-r from-amber-600 via-gold to-amber-600 hover:from-amber-500 hover:via-gold-light hover:to-amber-500 shadow-md hover:shadow-xl hover:shadow-gold/20 border border-gold/40 select-none';
+        'relative overflow-hidden font-semibold text-white bg-gold hover:bg-gold-light shadow-md hover:shadow-xl hover:shadow-gold/20 border border-gold/40 select-none';
     } else if (variant === 'arcade-clicker') {
       const pulseClass =
         urgency === 'critical'
@@ -443,6 +443,7 @@ export interface SlidingFilterPillProps {
   badge?: React.ReactNode;
   className?: string;
   disabled?: boolean;
+  activeColor?: 'gold' | 'black';
 }
 
 export function SlidingFilterPill({
@@ -454,7 +455,13 @@ export function SlidingFilterPill({
   badge,
   className,
   disabled = false,
+  activeColor = 'gold',
 }: SlidingFilterPillProps) {
+  const activeBg =
+    activeColor === 'black'
+      ? 'bg-ink text-white shadow-md border border-neutral-800'
+      : 'bg-gold hover:bg-gold-light text-white shadow-md ring-1 ring-gold/40';
+
   return (
     <motion.button
       type="button"
@@ -475,7 +482,7 @@ export function SlidingFilterPill({
         <motion.div
           layoutId={layoutId}
           transition={{ type: 'spring', stiffness: 450, damping: 34 }}
-          className="absolute inset-0 bg-gradient-to-r from-amber-600 via-gold to-amber-600 rounded-xl shadow-md -z-10"
+          className={cn('absolute inset-0 rounded-xl shadow-md -z-10', activeBg)}
         />
       )}
 
