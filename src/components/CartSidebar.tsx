@@ -9,6 +9,8 @@ import {
   SheetFooter,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { AnimatedButton } from '@/components/ui/animated-button';
+import { NumberTicker } from '@/components/ui/number-ticker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -514,14 +516,17 @@ export function CartSidebar({
               )}
             </div>
 
-            <Button
+            <AnimatedButton
               type="button"
+              variant="heritage-primary"
+              size="lg"
               onClick={handlePlaceOrder}
-              disabled={createOrderMutation.isPending}
-              className="w-full bg-gold hover:bg-gold-light text-white font-semibold text-sm py-5 mt-2"
+              isLoading={createOrderMutation.isPending}
+              loadingText="Submitting Order..."
+              className="w-full text-sm py-4 mt-2 shadow-md cursor-pointer"
             >
-              {createOrderMutation.isPending ? 'Submitting Order...' : 'Confirm & Place Order'}
-            </Button>
+              Confirm & Place Order
+            </AnimatedButton>
             <button
               type="button"
               onClick={() => setStep('auth')}
@@ -575,12 +580,16 @@ export function CartSidebar({
               )}
               <div className="flex justify-between text-ink font-serif text-lg font-bold pt-1 border-t border-dashed border-parchment">
                 <span>Final Total</span>
-                <span className="text-gold">₹{finalTotal}</span>
+                <span className="text-gold flex items-center">
+                  ₹<NumberTicker value={finalTotal} className="text-gold font-serif font-bold text-lg" />
+                </span>
               </div>
             </div>
 
-            <Button
+            <AnimatedButton
               type="button"
+              variant="heritage-primary"
+              size="lg"
               onClick={() => {
                 if (authenticatedCustomer) {
                   setStep('payment');
@@ -588,10 +597,11 @@ export function CartSidebar({
                   setStep('auth');
                 }
               }}
-              className="w-full bg-gold hover:bg-gold-light text-white font-semibold text-sm py-5 flex items-center justify-center gap-2 shadow-md"
+              className="w-full text-sm py-4 flex items-center justify-center gap-2 shadow-md cursor-pointer"
             >
-              Proceed to Checkout <ArrowRight className="w-4 h-4" />
-            </Button>
+              <span>Proceed to Checkout</span>
+              <ArrowRight className="w-4 h-4" />
+            </AnimatedButton>
           </SheetFooter>
         )}
       </SheetContent>

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { SlidingFilterPill } from '@/components/ui/animated-button';
 
 interface CategoryFilterProps {
   categories: string[];
@@ -78,35 +79,27 @@ export function CategoryFilter({
 
         {/* Quick Switch Pills */}
         <div className="flex items-center gap-1.5 ml-auto">
-          {dietaryFilter !== 'veg' && (
-            <button
-              type="button"
-              onClick={() => onSelectDietaryFilter('veg')}
-              className="px-3 py-1.5 rounded-full text-[11px] font-semibold border border-emerald-500/40 text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100 transition-all cursor-pointer"
-            >
-              🌱 Switch to Veg
-            </button>
-          )}
-
-          {dietaryFilter !== 'non-veg' && (
-            <button
-              type="button"
-              onClick={() => onSelectDietaryFilter('non-veg')}
-              className="px-3 py-1.5 rounded-full text-[11px] font-semibold border border-rose-500/40 text-rose-800 bg-rose-50/70 hover:bg-rose-100 transition-all cursor-pointer"
-            >
-              🍗 Switch to Non-Veg
-            </button>
-          )}
-
-          {dietaryFilter !== 'all' && (
-            <button
-              type="button"
-              onClick={() => onSelectDietaryFilter('all')}
-              className="px-3 py-1.5 rounded-full text-[11px] font-semibold text-ink-soft hover:bg-cream-deep border border-parchment transition-all cursor-pointer"
-            >
-              View All
-            </button>
-          )}
+          <SlidingFilterPill
+            layoutId="dietary-filter-tab"
+            isSelected={dietaryFilter === 'veg'}
+            onClick={() => onSelectDietaryFilter('veg')}
+            label="🌱 Veg"
+            className="text-[11px] py-1.5 px-3 rounded-full"
+          />
+          <SlidingFilterPill
+            layoutId="dietary-filter-tab"
+            isSelected={dietaryFilter === 'non-veg'}
+            onClick={() => onSelectDietaryFilter('non-veg')}
+            label="🍗 Non-Veg"
+            className="text-[11px] py-1.5 px-3 rounded-full"
+          />
+          <SlidingFilterPill
+            layoutId="dietary-filter-tab"
+            isSelected={dietaryFilter === 'all'}
+            onClick={() => onSelectDietaryFilter('all')}
+            label="View All"
+            className="text-[11px] py-1.5 px-3 rounded-full"
+          />
         </div>
       </div>
 
@@ -118,36 +111,30 @@ export function CategoryFilter({
             const count = categoryCounts ? categoryCounts[cat] ?? 0 : null;
             const icon = CATEGORY_ICONS[cat.toUpperCase()] || '🍲';
             return (
-              <button
+              <SlidingFilterPill
                 key={cat}
-                type="button"
+                layoutId="active-category-filter-tab"
+                isSelected={isSelected}
+                disabled={count === 0}
                 onClick={() => onSelectCategory(cat)}
-                className={`group px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-300 flex items-center gap-2 cursor-pointer ${
-                  isSelected
-                    ? 'bg-gold text-white shadow-md scale-105 ring-2 ring-gold/40'
-                    : count === 0
-                    ? 'bg-white/60 text-ink-soft/40 border border-parchment/60'
-                    : 'bg-white hover:bg-cream-deep text-ink-soft border border-parchment hover:border-gold/40 shadow-xs'
-                }`}
-              >
-                <span className="text-sm sm:text-base group-hover:scale-110 transition-transform">
-                  {icon}
-                </span>
-                <span>{cat}</span>
-                {count !== null && (
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                      isSelected
-                        ? 'bg-white/20 text-white'
-                        : count === 0
-                        ? 'bg-gray-100 text-gray-400'
-                        : 'bg-cream-deep text-ink-soft'
-                    }`}
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
+                icon={<span>{icon}</span>}
+                label={cat}
+                badge={
+                  count !== null ? (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : count === 0
+                          ? 'bg-gray-100 text-gray-400'
+                          : 'bg-cream-deep text-ink-soft'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  ) : null
+                }
+              />
             );
           })}
         </div>

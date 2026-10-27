@@ -4,6 +4,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { MorphingCartButton } from '@/components/ui/animated-button';
 import { Plus, Minus, Sparkles } from 'lucide-react';
 
 export interface MenuItemData {
@@ -92,34 +93,12 @@ export function MenuCard({
           <span className="font-serif text-xl sm:text-2xl font-bold text-ink">₹{item.price}</span>
         </div>
 
-        {cartQuantity === 0 ? (
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => onAddToCart(item)}
-            className="bg-gold hover:bg-gold-light text-white font-semibold text-xs px-4 py-2 rounded-xl shadow-sm hover:shadow-md active:scale-95 transition-all cursor-pointer"
-          >
-            + Add
-          </Button>
-        ) : (
-          <div className="flex items-center gap-2 bg-cream-deep px-2.5 py-1.5 rounded-xl border border-gold/40 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => onUpdateQuantity(item.id, -1)}
-              className="w-6 h-6 rounded-lg bg-white text-ink flex items-center justify-center hover:bg-parchment transition-colors active:scale-90 cursor-pointer shadow-2xs"
-            >
-              <Minus className="w-3 h-3" />
-            </button>
-            <span className="text-xs font-bold w-4 text-center text-ink">{cartQuantity}</span>
-            <button
-              type="button"
-              onClick={() => onUpdateQuantity(item.id, 1)}
-              className="w-6 h-6 rounded-lg bg-white text-ink flex items-center justify-center hover:bg-parchment transition-colors active:scale-90 cursor-pointer shadow-2xs"
-            >
-              <Plus className="w-3 h-3" />
-            </button>
-          </div>
-        )}
+        <MorphingCartButton
+          count={cartQuantity}
+          onAdd={() => onAddToCart(item)}
+          onIncrement={() => onUpdateQuantity(item.id, 1)}
+          onDecrement={() => onUpdateQuantity(item.id, -1)}
+        />
       </div>
     </Card>
   );

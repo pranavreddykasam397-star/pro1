@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { AnimatedButton } from '@/components/ui/animated-button';
 import { ArrowDown, Sparkles, ArrowRight } from 'lucide-react';
 import gsap from 'gsap';
 
@@ -186,19 +187,18 @@ export function Hero({
           Fine Indian Cuisine · Crafted with Tradition, Royal Spices & Authentic Recipes
         </p>
 
-        {/* Action Button with Shimmer Sweep */}
+        {/* Action Button with Luxury Gold Shimmer & Magnetic Hover */}
         <div className="pt-2">
-          <button
+          <AnimatedButton
             ref={btnRef}
-            type="button"
+            variant="heritage-primary"
+            size="lg"
             onClick={handleButtonClick}
-            className="group relative overflow-hidden bg-gold hover:bg-gold-light text-white font-semibold text-sm px-9 py-4 sm:py-4.5 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer inline-flex items-center gap-2 border border-gold/40"
+            className="rounded-full px-9 py-4 sm:py-4.5 text-sm sm:text-base shadow-xl border-gold/50 cursor-pointer inline-flex items-center gap-2 group"
           >
-            {/* Shimmer sweep */}
-            <span className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 animate-shimmer pointer-events-none" />
-            <span className="relative z-10">Explore Our Menu</span>
-            <ArrowDown className="w-4 h-4 relative z-10 group-hover:translate-y-1 transition-transform" />
-          </button>
+            <span>Explore Our Menu</span>
+            <ArrowDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />
+          </AnimatedButton>
         </div>
 
         {/* Emergent Preference Boxes (Veg / Non-Veg) */}

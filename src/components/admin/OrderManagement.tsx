@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AnimatedButton } from '@/components/ui/animated-button';
+import { NumberTicker } from '@/components/ui/number-ticker';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { trpc } from '@/lib/trpc/client';
@@ -26,6 +28,7 @@ export function OrderManagement() {
   const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'CONFIRMED' | 'REJECTED'>('ALL');
   const [isEndDayModalOpen, setIsEndDayModalOpen] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
 
   // tRPC live polling for orders every 5 seconds!
   const ordersQuery = trpc.order.getAllOrders.useQuery(undefined, {
@@ -53,10 +56,13 @@ export function OrderManagement() {
 
   const handleUpdateStatus = async (orderId: number, status: 'CONFIRMED' | 'REJECTED') => {
     try {
+      setUpdatingOrderId(orderId);
       await updateStatusMutation.mutateAsync({ orderId, status });
       toast.success(`Order #${orderId} marked as ${status}`);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update order status');
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 
@@ -76,8 +82,8 @@ export function OrderManagement() {
               <p className="text-xs font-semibold text-ink-soft uppercase tracking-wider">
                 Total Revenue
               </p>
-              <h3 className="font-serif text-3xl font-bold text-ink mt-1">
-                ₹{ordersQuery.data?.totalRevenue || 0}
+              <h3 className="font-serif text-3xl font-bold text-ink mt-1 flex items-center">
+                ₹<NumberTicker value={ordersQuery.data?.totalRevenue || 0} className="font-serif text-3xl font-bold text-ink" />
               </h3>
             </div>
             <div className="w-12 h-12 bg-gold/10 text-gold rounded-full flex items-center justify-center">
@@ -93,7 +99,7 @@ export function OrderManagement() {
                 Pending Verification
               </p>
               <h3 className="font-serif text-3xl font-bold text-amber-600 mt-1">
-                {ordersQuery.data?.pendingCount || 0}
+                <NumberTicker value={ordersQuery.data?.pendingCount || 0} className="font-serif text-3xl font-bold text-amber-600" />
               </h3>
             </div>
             <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center">
@@ -109,7 +115,7 @@ export function OrderManagement() {
                 Total Orders Placed
               </p>
               <h3 className="font-serif text-3xl font-bold text-ink mt-1">
-                {ordersQuery.data?.totalOrders || 0}
+                <NumberTicker value={ordersQuery.data?.totalOrders || 0} className="font-serif text-3xl font-bold text-ink" />
               </h3>
             </div>
             <div className="w-12 h-12 bg-cream-deep text-ink-soft rounded-full flex items-center justify-center">
@@ -146,9 +152,11 @@ export function OrderManagement() {
             <span>Live 5s Polling Active</span>
           </div>
 
-          <Button
+          <AnimatedButton
             id="end-day-summary-btn"
             type="button"
+            variant="heritage-primary"
+            size="sm"
             onClick={() => {
               if (allOrders.length === 0) {
                 toast.info('No active orders to end the day. All orders are already archived!');
@@ -157,11 +165,11 @@ export function OrderManagement() {
               setIsEndDayModalOpen(true);
             }}
             disabled={endDayMutation.isPending}
-            className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-semibold text-xs h-8 px-3.5 shadow-sm flex items-center gap-1.5 transition-all rounded-lg cursor-pointer"
+            className="h-8 px-3.5 shadow-sm text-xs font-semibold cursor-pointer"
           >
-            <CalendarCheck className="w-4 h-4 text-amber-100" />
+            <CalendarCheck className="w-4 h-4 mr-1 text-amber-100" />
             <span>End Day Summary</span>
-          </Button>
+          </AnimatedButton>
         </div>
       </div>
 
@@ -253,23 +261,25 @@ export function OrderManagement() {
                     <td className="py-3 px-4 text-right">
                       {order.paymentStatus === 'PENDING' ? (
                         <div className="flex items-center justify-end gap-1.5">
-                          <Button
+                          <AnimatedButton
                             size="sm"
                             onClick={() => handleUpdateStatus(order.id, 'CONFIRMED')}
                             disabled={updateStatusMutation.isPending}
-                            className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 px-2.5"
+                            isLoading={updateStatusMutation.isPending && updatingOrderId === order.id}
+                            loadingText="Accepting..."
+                            className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 px-2.5 rounded-lg cursor-pointer"
                           >
                             <Check className="w-3.5 h-3.5 mr-1" /> Accept
-                          </Button>
-                          <Button
+                          </AnimatedButton>
+                          <AnimatedButton
                             size="sm"
                             variant="destructive"
                             onClick={() => handleUpdateStatus(order.id, 'REJECTED')}
                             disabled={updateStatusMutation.isPending}
-                            className="text-xs h-7 px-2.5"
+                            className="text-xs h-7 px-2.5 rounded-lg cursor-pointer"
                           >
                             <X className="w-3.5 h-3.5 mr-1" /> Reject
-                          </Button>
+                          </AnimatedButton>
                         </div>
                       ) : (
                         <span className="text-[11px] text-ink-soft">Processed</span>
@@ -395,25 +405,20 @@ export function OrderManagement() {
             >
               Cancel
             </Button>
-            <Button
+            <AnimatedButton
               id="confirm-end-day-btn"
               type="button"
+              variant="heritage-primary"
+              size="default"
               disabled={endDayMutation.isPending || allOrders.length === 0}
+              isLoading={endDayMutation.isPending}
+              loadingText="Archiving Day..."
               onClick={() => endDayMutation.mutate()}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs h-9 px-4 shadow-sm flex items-center gap-1.5"
+              className="text-xs h-9 px-4 shadow-sm"
             >
-              {endDayMutation.isPending ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" />
-                  Archiving Day...
-                </>
-              ) : (
-                <>
-                  <Check className="w-3.5 h-3.5 mr-1" />
-                  Confirm &amp; End Day
-                </>
-              )}
-            </Button>
+              <Check className="w-3.5 h-3.5 mr-1" />
+              Confirm &amp; End Day
+            </AnimatedButton>
           </div>
         </DialogContent>
       </Dialog>

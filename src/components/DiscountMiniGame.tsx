@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import { AnimatedButton } from '@/components/ui/animated-button';
 import { Card } from '@/components/ui/card';
 import { Sparkles, Trophy, AlertCircle, RotateCcw, Zap } from 'lucide-react';
 
@@ -183,15 +184,17 @@ export function DiscountMiniGame({ onWin, onClose }: DiscountMiniGameProps) {
             </span>
           </div>
 
-          {/* Large Tap Target */}
-          <button
+          {/* Large Tap Target with 3D Arcade Push & Urgency Pulse */}
+          <AnimatedButton
             type="button"
+            variant="arcade-clicker"
+            urgency={timeLeft <= 3 ? 'critical' : timeLeft <= 6 ? 'high' : 'normal'}
             onClick={handleTap}
-            className="w-full py-8 rounded-xl font-bold text-xl bg-gradient-to-r from-gold via-gold-light to-gold text-white shadow-lg active:scale-95 transition-transform select-none flex items-center justify-center gap-2"
+            className="w-full py-8 text-xl font-bold flex items-center justify-center gap-2 cursor-pointer"
           >
-            <Zap className="w-6 h-6 animate-bounce" />
-            {clickerStarted ? 'TAP FAST!' : 'TAP TO START!'}
-          </button>
+            <Zap className={`w-6 h-6 ${timeLeft <= 3 ? 'animate-ping' : 'animate-bounce'}`} />
+            <span>{clickerStarted ? 'TAP FAST!' : 'TAP TO START!'}</span>
+          </AnimatedButton>
 
           {/* Progress Bar */}
           <div className="w-full bg-parchment h-2 rounded-full overflow-hidden">
@@ -213,13 +216,14 @@ export function DiscountMiniGame({ onWin, onClose }: DiscountMiniGameProps) {
           <p className="text-xs text-ink-soft">
             Congratulations! ₹50 has been deducted from your order subtotal.
           </p>
-          <Button
-            type="button"
+          <AnimatedButton
+            variant="heritage-primary"
+            size="default"
             onClick={onClose}
-            className="bg-gold hover:bg-gold-light text-white font-semibold text-xs px-6"
+            className="px-6 font-semibold text-xs"
           >
             Continue to Checkout
-          </Button>
+          </AnimatedButton>
         </div>
       )}
 
