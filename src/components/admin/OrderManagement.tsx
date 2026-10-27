@@ -18,11 +18,14 @@ import {
   Check,
   X,
   RefreshCw,
+  CalendarCheck,
+  AlertTriangle,
 } from 'lucide-react';
 
 export function OrderManagement() {
   const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'CONFIRMED' | 'REJECTED'>('ALL');
+  const [isEndDayModalOpen, setIsEndDayModalOpen] = useState(false);
 
   // tRPC live polling for orders every 5 seconds!
   const ordersQuery = trpc.order.getAllOrders.useQuery(undefined, {
@@ -32,6 +35,19 @@ export function OrderManagement() {
   const updateStatusMutation = trpc.order.updateStatus.useMutation({
     onSuccess: () => {
       ordersQuery.refetch();
+    },
+  });
+
+  const endDayMutation = trpc.order.endDay.useMutation({
+    onSuccess: (data) => {
+      toast.success(
+        `Day ended successfully! Archived ${data.summary.ordersArchived} order(s) (₹${data.summary.confirmedRevenue} confirmed revenue).`
+      );
+      setIsEndDayModalOpen(false);
+      ordersQuery.refetch();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to complete end day summary');
     },
   });
 
@@ -103,9 +119,9 @@ export function OrderManagement() {
         </Card>
       </div>
 
-      {/* Filter Bar & Polling Indicator */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-white rounded-xl border border-parchment shadow-sm">
-        <div className="flex items-center gap-2">
+      {/* Filter Bar, Polling Indicator & End Day Action */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-4 bg-white rounded-xl border border-parchment shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-4 h-4 text-gold" />
           <span className="text-xs font-semibold text-ink mr-2">Filter Orders:</span>
           {(['ALL', 'PENDING', 'CONFIRMED', 'REJECTED'] as const).map((st) => (
@@ -124,9 +140,28 @@ export function OrderManagement() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-green-700 font-semibold">
-          <RefreshCw className={`w-3.5 h-3.5 ${ordersQuery.isFetching ? 'animate-spin' : ''}`} />
-          <span>Live 5s Polling Active</span>
+        <div className="flex flex-wrap items-center justify-between md:justify-end gap-3">
+          <div className="flex items-center gap-2 text-xs text-green-700 font-semibold bg-green-50/80 px-2.5 py-1 rounded-lg border border-green-200/60">
+            <RefreshCw className={`w-3.5 h-3.5 ${ordersQuery.isFetching ? 'animate-spin' : ''}`} />
+            <span>Live 5s Polling Active</span>
+          </div>
+
+          <Button
+            id="end-day-summary-btn"
+            type="button"
+            onClick={() => {
+              if (allOrders.length === 0) {
+                toast.info('No active orders to end the day. All orders are already archived!');
+                return;
+              }
+              setIsEndDayModalOpen(true);
+            }}
+            disabled={endDayMutation.isPending}
+            className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-semibold text-xs h-8 px-3.5 shadow-sm flex items-center gap-1.5 transition-all rounded-lg cursor-pointer"
+          >
+            <CalendarCheck className="w-4 h-4 text-amber-100" />
+            <span>End Day Summary</span>
+          </Button>
         </div>
       </div>
 
@@ -272,6 +307,114 @@ export function OrderManagement() {
           >
             Close Receipt
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* End Day Summary Confirmation Modal */}
+      <Dialog open={isEndDayModalOpen} onOpenChange={setIsEndDayModalOpen}>
+        <DialogContent className="sm:max-w-md bg-white border-parchment p-6">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <CalendarCheck className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="text-left">
+                <DialogTitle className="font-serif text-lg font-bold text-ink">
+                  End Business Day Summary
+                </DialogTitle>
+                <p className="text-xs text-ink-soft">
+                  {new Date().toLocaleDateString('en-IN', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    timeZone: 'Asia/Kolkata',
+                  })}
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 my-2 text-left">
+            {/* Metric preview cards */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-lg border border-parchment bg-cream-deep/40 text-center">
+                <p className="text-[11px] font-semibold text-ink-soft uppercase tracking-wider">
+                  Total Orders
+                </p>
+                <p className="text-2xl font-bold font-serif text-ink mt-0.5">
+                  {allOrders.length}
+                </p>
+                <p className="text-[10px] text-ink-soft mt-0.5">
+                  {allOrders.filter((o) => o.paymentStatus === 'CONFIRMED').length} Confirmed
+                </p>
+              </div>
+              <div className="p-3 rounded-lg border border-parchment bg-gold/10 text-center">
+                <p className="text-[11px] font-semibold text-ink-soft uppercase tracking-wider">
+                  Confirmed Revenue
+                </p>
+                <p className="text-2xl font-bold font-serif text-gold mt-0.5">
+                  ₹{ordersQuery.data?.totalRevenue || 0}
+                </p>
+                <p className="text-[10px] text-green-700 font-semibold mt-0.5">Ready to Rollup</p>
+              </div>
+            </div>
+
+            {/* Warning if pending orders exist */}
+            {(ordersQuery.data?.pendingCount || 0) > 0 && (
+              <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">
+                    {ordersQuery.data?.pendingCount} order(s) pending payment verification!
+                  </span>
+                  <p className="text-[11px] text-amber-700 mt-0.5">
+                    Ending the day now will archive all active orders and clear the live queue.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="p-3 rounded-lg bg-cream-deep/30 border border-parchment text-xs text-ink-soft space-y-1.5 leading-relaxed">
+              <p className="font-semibold text-ink">Accounting &amp; Reset Actions:</p>
+              <ul className="list-disc list-inside space-y-1 text-[11px]">
+                <li>Today&apos;s orders are saved into the permanent Daily Summaries archive.</li>
+                <li>Live active orders queue will reset to zero for tomorrow&apos;s shift.</li>
+                <li>Daily Chef Specials are reset back to standard catalog items.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-parchment">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={endDayMutation.isPending}
+              onClick={() => setIsEndDayModalOpen(false)}
+              className="text-xs h-9 px-4 border-parchment"
+            >
+              Cancel
+            </Button>
+            <Button
+              id="confirm-end-day-btn"
+              type="button"
+              disabled={endDayMutation.isPending || allOrders.length === 0}
+              onClick={() => endDayMutation.mutate()}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs h-9 px-4 shadow-sm flex items-center gap-1.5"
+            >
+              {endDayMutation.isPending ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" />
+                  Archiving Day...
+                </>
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5 mr-1" />
+                  Confirm &amp; End Day
+                </>
+              )}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

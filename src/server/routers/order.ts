@@ -1,5 +1,5 @@
 import { router, publicProcedure, adminProcedure } from '../trpc';
-import { orders, dailySummaries, customers } from '@/lib/db/schema';
+import { orders, dailySummaries, customers, menuItems } from '@/lib/db/schema';
 import {
   createOrderSchema,
   updateOrderStatusSchema,
@@ -159,5 +159,88 @@ export const orderRouter = router({
       .orderBy(desc(dailySummaries.date));
 
     return summaries;
+  }),
+
+  /**
+   * Admin Mutation: End the business day
+   * Aggregates active orders, saves to daily_summaries, and clears current live order stream
+   */
+  endDay: adminProcedure.mutation(async ({ ctx }) => {
+    const orderList = await ctx.db
+      .select()
+      .from(orders)
+      .orderBy(desc(orders.createdAt));
+
+    if (orderList.length === 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'No active orders to summarize for the day.',
+      });
+    }
+
+    const confirmedOrders = orderList.filter((o) => o.paymentStatus === 'CONFIRMED');
+    const confirmedRevenue = confirmedOrders.reduce((sum, o) => sum + o.total, 0);
+
+    // Format IST date string (YYYY-MM-DD)
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+    // Check if a summary for today already exists to merge
+    const [existingSummary] = await ctx.db
+      .select()
+      .from(dailySummaries)
+      .where(eq(dailySummaries.date, dateStr))
+      .limit(1);
+
+    let finalRevenue = confirmedRevenue;
+    let finalOrderCount = orderList.length;
+    let finalOrdersJson = orderList;
+
+    if (existingSummary) {
+      finalRevenue = existingSummary.totalRevenue + confirmedRevenue;
+      finalOrderCount = existingSummary.orderCount + orderList.length;
+      finalOrdersJson = [...(existingSummary.ordersJson || []), ...orderList];
+
+      await ctx.db
+        .update(dailySummaries)
+        .set({
+          totalRevenue: finalRevenue,
+          orderCount: finalOrderCount,
+          ordersJson: finalOrdersJson,
+          createdAt: new Date(),
+        })
+        .where(eq(dailySummaries.date, dateStr));
+    } else {
+      await ctx.db.insert(dailySummaries).values({
+        date: dateStr,
+        totalRevenue: finalRevenue,
+        orderCount: finalOrderCount,
+        ordersJson: finalOrdersJson,
+      });
+    }
+
+    // Reset daily special if any
+    try {
+      await ctx.db
+        .update(menuItems)
+        .set({ isSpecial: false })
+        .where(eq(menuItems.isSpecial, true));
+    } catch (e) {
+      console.warn('[order.endDay] Could not reset daily special:', e);
+    }
+
+    // Clear active orders so the new day starts fresh
+    await ctx.db.delete(orders);
+
+    return {
+      success: true,
+      summary: {
+        date: dateStr,
+        totalRevenue: finalRevenue,
+        orderCount: finalOrderCount,
+        confirmedRevenue,
+        ordersArchived: orderList.length,
+      },
+    };
   }),
 });
